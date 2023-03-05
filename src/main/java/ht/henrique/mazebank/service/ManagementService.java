@@ -8,4 +8,5 @@ import org.springframework.http.ResponseEntity;
 public interface ManagementService {
 
     ResponseEntity<BaseResponse> createUser(CreateRequest createRequest) throws DatabaseException;
+    ResponseEntity<BaseResponse> getUser(String userKey) throws DatabaseException;
 }

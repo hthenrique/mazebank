@@ -11,7 +11,7 @@ import java.util.List;
 @Repository
 public interface UserRepository extends CrudRepository<User, Long> {
 
-    @Query(value = "SELECT * FROM users WHERE user_account_key = :accountKey", nativeQuery = true)
-    List<User> findByUserAccountKey(@Param("accountKey") String userAccountKey);
+    @Query(value = "SELECT * FROM users WHERE user_email = :userEmail", nativeQuery = true)
+    List<User> findByUserEmail(@Param("userEmail") String userEmail);
 
 }

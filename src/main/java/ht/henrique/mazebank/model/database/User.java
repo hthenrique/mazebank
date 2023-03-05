@@ -22,6 +22,6 @@ public class User implements Projection{
     private String user_pass;
     @Column(name = "user_balance")
     private Integer user_balance;
-    @Column(name = "user_account_key")
-    private String user_account_key;
+    @Column(name = "user_email")
+    private String user_email;
 }

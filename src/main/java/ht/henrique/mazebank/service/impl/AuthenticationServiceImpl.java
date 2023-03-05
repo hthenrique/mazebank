@@ -29,7 +29,7 @@ public class AuthenticationServiceImpl implements AuthenticateService {
 
         try {
             log.info("Searching for user with key: " + authenticateRequest.getUsername());
-            listUser = userRepository.findByUserAccountKey(authenticateRequest.getUsername());
+            listUser = userRepository.findByUserEmail(authenticateRequest.getUsername());
 
             if (listUser.size() == 1){
                 user = listUser.get(0);

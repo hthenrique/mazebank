@@ -1,6 +1,7 @@
 package ht.henrique.mazebank.exception;
 
 import ht.henrique.mazebank.model.error.ErrorTemplate;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -10,6 +11,7 @@ import java.sql.Timestamp;
 import java.util.Date;
 
 @ControllerAdvice
+@Slf4j
 public class ExceptionHandle {
 
     @ExceptionHandler(value = {ControllerException.class})
@@ -36,6 +38,7 @@ public class ExceptionHandle {
     public ResponseEntity<ErrorTemplate> handleException(ErrorTemplate errorTemplate, HttpStatus httpStatus) {
         Date date = new Date();
         errorTemplate.setTimeStamp(new Timestamp(date.getTime()).toString());
+        log.info(errorTemplate.toString());
         return ResponseEntity.status(httpStatus).body(errorTemplate);
     }
 }

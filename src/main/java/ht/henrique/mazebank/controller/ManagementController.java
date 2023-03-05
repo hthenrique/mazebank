@@ -10,10 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/management")
@@ -30,6 +27,15 @@ public class ManagementController {
             throw new ControllerException(HttpStatus.BAD_REQUEST, 400001, "Invalid parameters");
         }
         return managementService.createUser(createRequest);
+    }
+
+    @GetMapping("/user")
+    public ResponseEntity<BaseResponse> getUser(@RequestHeader(value = "user-key",required = false) String userKey) throws ControllerException, DatabaseException {
+        if (userKey == null || userKey.equals("")){
+            log.info("Invalid parameters");
+            throw new ControllerException(HttpStatus.BAD_REQUEST, 400001, "Invalid parameters");
+        }
+        return managementService.getUser(userKey);
     }
 
 
