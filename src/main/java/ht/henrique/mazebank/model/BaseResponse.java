@@ -1,6 +1,5 @@
-package ht.henrique.mazebank.model.create;
+package ht.henrique.mazebank.model;
 
-import ht.henrique.mazebank.model.Response;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,8 +9,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class CreateResponse implements Response {
+public class BaseResponse {
 
-    private String message;
-
+    private Integer code;
+    private Response response;
 }
