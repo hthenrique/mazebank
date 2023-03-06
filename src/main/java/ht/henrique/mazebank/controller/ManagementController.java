@@ -29,7 +29,7 @@ public class ManagementController {
         return managementService.createUser(createRequest);
     }
 
-    @GetMapping("/user")
+    @GetMapping("/fetch/user")
     public ResponseEntity<BaseResponse> getUser(@RequestHeader(value = "user-key",required = false) String userKey) throws ControllerException, DatabaseException {
         if (userKey == null || userKey.equals("")){
             log.info("Invalid parameters");
