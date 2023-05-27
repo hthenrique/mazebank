@@ -37,11 +37,6 @@ jobs:
       name: 'Production'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
       
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      DATABASE_USER: ${{ secrets.DATABASE_USER }}
-      DATABASE_PASS: ${{ secrets.DATABASE_PASS }}
-      
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v2
@@ -56,3 +51,7 @@ jobs:
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_B250FB88359448F78D38CFE8073307D3 }}
           package: '*.jar'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_USER: ${{ secrets.DATABASE_USER }}
+          DATABASE_PASS: ${{ secrets.DATABASE_PASS }}
