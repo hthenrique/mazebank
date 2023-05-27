@@ -11,8 +11,8 @@ import java.text.DecimalFormat;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Entity(name = "users")
-@Table(name = "users")
+@Entity(name = "User_Table")
+@Table(name = "User_Table")
 public class User implements Projection{
 
     @Id
