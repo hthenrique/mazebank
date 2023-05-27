@@ -8,7 +8,12 @@ on:
     branches:
       - master
   workflow_dispatch:
-
+  
+env:
+  DATABASE_URL: jdbc:sqlserver://mazebank-server.database.windows.net:1433;database=mazebank-database;user=mazebankuser@mazebank-server;password=Mazebank2023;encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;
+  DATABASE_USER: mazebankuser
+  DATABASE_PASS: Mazebank2023
+  
 jobs:
   build:
     runs-on: ubuntu-latest
