@@ -49,5 +49,5 @@ jobs:
         with:
           app-name: 'mazebank-backend'
           slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_BFA845E5A0FA43B7B08838F0CC784734 }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_3866902A40334AD681945AE4FA44CFF9 }}
           package: '*.jar'
