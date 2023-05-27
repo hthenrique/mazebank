@@ -9,11 +9,6 @@ on:
       - master
   workflow_dispatch:
   
-env:
-  DATABASE_URL: jdbc:sqlserver://mazebank-server.database.windows.net:1433;database=mazebank-database;user=mazebankuser@mazebank-server;password=Mazebank2023;encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;
-  DATABASE_USER: mazebankuser
-  DATABASE_PASS: Mazebank2023
-  
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -41,7 +36,12 @@ jobs:
     environment:
       name: 'Production'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-    
+      
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_USER: ${{ secrets.DATABASE_USER }}
+      DATABASE_PASS: ${{ secrets.DATABASE_PASS }}
+      
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v2
