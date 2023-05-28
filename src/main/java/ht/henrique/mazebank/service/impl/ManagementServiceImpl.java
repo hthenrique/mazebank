@@ -32,7 +32,7 @@ public class ManagementServiceImpl implements ManagementService {
 
         if (findUserByKey(createRequest.getUseremail()) != null){
             log.info("User already used with key");
-            throw new DatabaseException(HttpStatus.CONFLICT, 409000, "User already used");
+            throw new DatabaseException(HttpStatus.CONFLICT, 409000, "User already exists");
         }
 
         User user = userMapper.createToUser(createRequest);
