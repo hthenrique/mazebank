@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -38,6 +39,7 @@ public class ManagementServiceImpl implements ManagementService {
         User user = userMapper.createToUser(createRequest);
 
         try {
+            user.setUser_balance(BigDecimal.valueOf(100));
             userRepository.save(user);
         }catch (DataIntegrityViolationException exception){
             log.info("Required field not informed");
