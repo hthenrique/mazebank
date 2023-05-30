@@ -3,10 +3,11 @@ package ht.henrique.mazebank.service;
 import ht.henrique.mazebank.exception.DatabaseException;
 import ht.henrique.mazebank.model.BaseResponse;
 import ht.henrique.mazebank.model.create.CreateRequest;
-import org.springframework.http.ResponseEntity;
+import ht.henrique.mazebank.model.deposit.DepositRequest;
 
 public interface ManagementService {
 
-    ResponseEntity<BaseResponse> createUser(CreateRequest createRequest) throws DatabaseException;
-    ResponseEntity<BaseResponse> getUser(String userKey) throws DatabaseException;
+    BaseResponse createUser(CreateRequest createRequest) throws DatabaseException;
+    BaseResponse getUser(String userKey) throws DatabaseException;
+    BaseResponse depositValue(Long userId, DepositRequest depositRequest) throws DatabaseException;
 }

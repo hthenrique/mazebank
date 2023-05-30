@@ -5,6 +5,7 @@ import ht.henrique.mazebank.model.BaseResponse;
 import ht.henrique.mazebank.model.create.CreateRequest;
 import ht.henrique.mazebank.model.create.CreateResponse;
 import ht.henrique.mazebank.model.database.User;
+import ht.henrique.mazebank.model.deposit.DepositRequest;
 import ht.henrique.mazebank.model.fetch.FetchUserResponse;
 import ht.henrique.mazebank.model.mapper.UserMapper;
 import ht.henrique.mazebank.model.reposiory.UserRepository;
@@ -29,7 +30,7 @@ public class ManagementServiceImpl implements ManagementService {
     private UserMapper userMapper;
 
     @Override
-    public ResponseEntity<BaseResponse> createUser(CreateRequest createRequest) throws DatabaseException {
+    public BaseResponse createUser(CreateRequest createRequest) throws DatabaseException {
 
         if (findUserByKey(createRequest.getUseremail()) != null){
             log.info("User already used with key");
@@ -48,11 +49,11 @@ public class ManagementServiceImpl implements ManagementService {
             throw new DatabaseException(HttpStatus.INTERNAL_SERVER_ERROR, 500000, "Database unavailable");
         }
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(new BaseResponse(201000, new CreateResponse("Success")));
+        return new BaseResponse(201000, new CreateResponse("Success"));
     }
 
     @Override
-    public ResponseEntity<BaseResponse> getUser(String userKey) throws DatabaseException {
+    public BaseResponse getUser(String userKey) throws DatabaseException {
 
         User user = findUserByKey(userKey);
 
@@ -63,7 +64,22 @@ public class ManagementServiceImpl implements ManagementService {
 
         FetchUserResponse fetchUser = userMapper.userToFetchUser(user);
 
-        return ResponseEntity.ok(new BaseResponse(200000, fetchUser));
+        return new BaseResponse(200000, fetchUser);
+    }
+
+    @Override
+    public BaseResponse depositValue(Long userId, DepositRequest depositRequest) throws DatabaseException {
+        User user = findUserById(userId);
+        if (user == null){
+            log.info("User not found");
+            throw new DatabaseException(HttpStatus.CONFLICT, 404000, "User not found");
+        }
+
+
+        BigDecimal newBalance = user.getUser_balance().add(new BigDecimal(depositRequest.getValue()));
+        user.setUser_balance(newBalance);
+        userRepository.save(user);
+        return new BaseResponse(20000, null);
     }
 
     private User findUserByKey(String userKey) throws DatabaseException {
@@ -72,6 +88,23 @@ public class ManagementServiceImpl implements ManagementService {
 
         log.info("Searching for user with key: " + userKey);
         listUser = userRepository.findByUserEmail(userKey);
+
+        if (listUser.size() == 1){
+            user = listUser.get(0);
+        }else {
+            if (listUser.size() > 1){
+                throw new DatabaseException(HttpStatus.UNPROCESSABLE_ENTITY, 420000, "More than one user");
+            }
+        }
+        return user;
+    }
+
+    private User findUserById(Long userId) throws DatabaseException {
+        List<User> listUser;
+        User user = null;
+
+        log.info("Searching for user with uid: " + userId);
+        listUser = userRepository.findByUserId(userId);
 
         if (listUser.size() == 1){
             user = listUser.get(0);
