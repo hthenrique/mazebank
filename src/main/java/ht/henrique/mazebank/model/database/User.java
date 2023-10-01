@@ -1,29 +1,30 @@
 package ht.henrique.mazebank.model.database;
 
-import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.ToString;
+import org.bson.Document;
+import org.bson.codecs.pojo.annotations.BsonDiscriminator;
+import org.bson.types.Decimal128;
+import org.bson.types.ObjectId;
 
-import java.math.BigDecimal;
-
+@ToString
 @Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Entity(name = "User_Table")
-@Table(name = "User_Table")
-public class User implements Projection{
+@BsonDiscriminator
+public class User {
+    private String _id;
+    private String _userName;
+    private String _userEmail;
+    private String _userPass;
+    private String _userCreatedAt;
+    private Decimal128 _userBalance;
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "uid")
-    private Integer uid;
-    @Column(name = "user_name")
-    private String user_name;
-    @Column(name = "user_pass")
-    private String user_pass;
-    @Column(name = "user_balance")
-    private BigDecimal user_balance;
-    @Column(name = "user_email")
-    private String user_email;
+    public User(Document document){
+        this._id = document.get("_id", ObjectId.class).toString();
+        this._userName = document.getString("_userName");
+        this._userEmail = document.getString("_userEmail");
+        this._userPass = document.getString("_userPass");
+        this._userCreatedAt = document.getString("_userCreatedAt");
+        this._userBalance = document.get("_userBalance", Decimal128.class);
+    }
+
 }

@@ -1,0 +1,8 @@
+server:
+  port: ${PORT:8080}
+  servlet:
+    context-path: /mazebank
+
+mongo:
+  connection:
+    url: ${MONGO_CONNECTION_URL}

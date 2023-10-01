@@ -12,17 +12,18 @@ import org.mapstruct.Mappings;
 public interface UserMapper {
 
     @Mappings({
-            @Mapping(source = "create.username", target = "user_name"),
-            @Mapping(source = "create.useremail", target = "user_email"),
-            @Mapping(source = "create.userpass", target = "user_pass")
+            @Mapping(source = "create.username", target = "_userName"),
+            @Mapping(source = "create.useremail", target = "_userEmail"),
+            @Mapping(source = "create.userpass", target = "_userPass")
     })
     User createToUser(CreateRequest create);
 
     @Mappings({
-            @Mapping(source = "user.uid", target = "uid"),
-            @Mapping(source = "user.user_name", target = "userName"),
-            @Mapping(source = "user.user_email", target = "userEmail"),
-            @Mapping(source = "user.user_balance", target = "userBalance")
+            @Mapping(source = "user._id", target = "uid"),
+            @Mapping(source = "user._userName", target = "userName"),
+            @Mapping(source = "user._userEmail", target = "userEmail"),
+            @Mapping(source = "user._userCreatedAt", target = "userCreateDate"),
+            @Mapping(source = "user._userBalance", target = "userBalance")
     })
     FetchUserResponse userToFetchUser(User user);
 }

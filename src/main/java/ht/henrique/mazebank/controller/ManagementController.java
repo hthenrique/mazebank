@@ -3,8 +3,8 @@ package ht.henrique.mazebank.controller;
 import ht.henrique.mazebank.exception.ControllerException;
 import ht.henrique.mazebank.exception.DatabaseException;
 import ht.henrique.mazebank.model.BaseResponse;
+import ht.henrique.mazebank.model.Response;
 import ht.henrique.mazebank.model.create.CreateRequest;
-import ht.henrique.mazebank.model.create.CreateResponse;
 import ht.henrique.mazebank.service.ManagementService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +26,7 @@ public class ManagementController {
             log.info("Invalid parameters");
             throw new ControllerException(HttpStatus.BAD_REQUEST, 400001, "Invalid parameters");
         }
-        return managementService.createUser(createRequest);
+        return ResponseEntity.ok(managementService.createUser(createRequest));
     }
 
     @GetMapping("/fetch/user")
@@ -35,7 +35,7 @@ public class ManagementController {
             log.info("Invalid parameters");
             throw new ControllerException(HttpStatus.BAD_REQUEST, 400001, "Invalid parameters");
         }
-        return managementService.getUser(userKey);
+        return ResponseEntity.ok(new BaseResponse(200000, managementService.getUser(userKey)));
     }
 
 
