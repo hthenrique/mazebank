@@ -47,4 +47,18 @@
         </dependency>
     </dependencies>
 
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>11</source> <!-- Substitua pela versão do Java desejada -->
+                    <target>11</target> <!-- Substitua pela versão do Java desejada -->
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
 </project>
