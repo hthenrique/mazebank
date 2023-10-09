@@ -5,4 +5,4 @@ server:
 
 mongo:
   connection:
-    url: ${MONGO_CONNECTION_URL}
+    url: ${MONGO_CONNECTION_URL:mongodb+srv://mazebank:mazebank@mazebankcluster.dddrndp.mongodb.net/?retryWrites=true&w=majority}
