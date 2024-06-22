@@ -58,6 +58,18 @@
                     <target>11</target> <!-- Substitua pela versão do Java desejada -->
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>2.7.0</version> <!-- Verifique a versão mais recente do plugin -->
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
