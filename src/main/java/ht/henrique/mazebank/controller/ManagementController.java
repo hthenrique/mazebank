@@ -5,6 +5,7 @@ import ht.henrique.mazebank.exception.DatabaseException;
 import ht.henrique.mazebank.model.BaseResponse;
 import ht.henrique.mazebank.model.Response;
 import ht.henrique.mazebank.model.create.CreateRequest;
+import ht.henrique.mazebank.model.type.ReturnCode;
 import ht.henrique.mazebank.service.ManagementService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +25,7 @@ public class ManagementController {
     public ResponseEntity<BaseResponse> createUser(@RequestBody(required = false) CreateRequest createRequest) throws DatabaseException, ControllerException {
         if (createRequest == null){
             log.info("Invalid parameters");
-            throw new ControllerException(HttpStatus.BAD_REQUEST, 400001, "Invalid parameters");
+            throw new ControllerException(ReturnCode.INVALID_PARAMETERS, "Invalid parameters");
         }
         return ResponseEntity.ok(managementService.createUser(createRequest));
     }
@@ -33,9 +34,9 @@ public class ManagementController {
     public ResponseEntity<BaseResponse> getUser(@RequestHeader(value = "user-key",required = false) String userKey) throws ControllerException, DatabaseException {
         if (userKey == null || userKey.equals("")){
             log.info("Invalid parameters");
-            throw new ControllerException(HttpStatus.BAD_REQUEST, 400001, "Invalid parameters");
+            throw new ControllerException(ReturnCode.INVALID_PARAMETERS, "Invalid parameters");
         }
-        return ResponseEntity.ok(new BaseResponse(200000, managementService.getUser(userKey)));
+        return ResponseEntity.ok(new BaseResponse(ReturnCode.SUCCESS.getCode(), managementService.getUser(userKey)));
     }
 
 

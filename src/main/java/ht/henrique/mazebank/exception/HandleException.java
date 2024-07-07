@@ -27,11 +27,11 @@ public class HandleException {
     public ResponseEntity<ErrorTemplate> buildResponse(BaseException baseException) {
         Date date = new Date();
         ErrorTemplate errorTemplate = ErrorTemplate.builder()
-                .errorCode(baseException.getErrorCode())
+                .errorCode(baseException.getReturnCode().getCode())
                 .errorMessage(baseException.getMessage())
                 .timeStamp(new Timestamp(date.getTime()).toString())
                 .build();
         log.info(errorTemplate.toString());
-        return ResponseEntity.status(baseException.getHttpStatus()).body(errorTemplate);
+        return ResponseEntity.status(baseException.getReturnCode().getHttpStatus()).body(errorTemplate);
     }
 }

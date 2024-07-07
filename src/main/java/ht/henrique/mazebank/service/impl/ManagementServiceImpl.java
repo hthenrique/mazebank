@@ -11,6 +11,7 @@ import ht.henrique.mazebank.model.create.CreateResponse;
 import ht.henrique.mazebank.model.database.User;
 import ht.henrique.mazebank.model.fetch.FetchUserResponse;
 import ht.henrique.mazebank.model.mapper.UserMapper;
+import ht.henrique.mazebank.model.type.ReturnCode;
 import ht.henrique.mazebank.service.ManagementService;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
@@ -45,7 +46,8 @@ public class ManagementServiceImpl implements ManagementService {
     public BaseResponse createUser(CreateRequest createRequest) throws DatabaseException {
          User user = findUserInCollection(createRequest.getUseremail());
          if (user != null){
-             throw new DatabaseException(HttpStatus.CONFLICT, 409000, "User already exists");
+             log.info(String.format("User already exists with uid %s", user.get_id()));
+             throw new DatabaseException(ReturnCode.USER_ALREADY_EXISTS, "User already exists");
          }
 
         try {
@@ -57,19 +59,20 @@ public class ManagementServiceImpl implements ManagementService {
             document.append("_userBalance", BigDecimal.valueOf(100));
             collection.insertOne(document);
         }catch (Exception exception){
-            throw new DatabaseException(HttpStatus.INTERNAL_SERVER_ERROR, 500000, "Database unavailable");
+            throw new DatabaseException(ReturnCode.INTERNAL_SERVER_ERROR, "Database unavailable");
         }
 
-        return new BaseResponse(201000, new CreateResponse("Success"));
+        return new BaseResponse(ReturnCode.CREATE_SUCCESS.getCode(), new CreateResponse("Success"));
     }
 
     @Override
     public FetchUserResponse getUser(String userKey) throws DatabaseException {
         User user = findUserInCollection(userKey);
         if (user == null){
-            log.info("User not found");
-            throw new DatabaseException(HttpStatus.CONFLICT, 404000, "User not found");
+            log.error("User not found");
+            throw new DatabaseException(ReturnCode.NOT_FOUND, "User not found");
         }
+        log.info(String.format("User founded with uid %s", user.get_id()));
         return userMapper.userToFetchUser(user);
     }
 
@@ -79,6 +82,7 @@ public class ManagementServiceImpl implements ManagementService {
     }
 
     private User findUserInCollection(String searchValue) throws DatabaseException {
+        log.info(String.format("Searching user with key: %s", searchValue));
         User user = null;
         try{
             Document filter = new Document("_userEmail", searchValue);
@@ -89,7 +93,7 @@ public class ManagementServiceImpl implements ManagementService {
             cursor.close();
         }catch (Exception e){
             log.error(e.getLocalizedMessage());
-            throw new DatabaseException(HttpStatus.INTERNAL_SERVER_ERROR, 500000, "Internal error in database");
+            throw new DatabaseException(ReturnCode.INTERNAL_SERVER_ERROR, "Internal error in database");
         }
         return user;
     }
