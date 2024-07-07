@@ -31,7 +31,7 @@ public class HandleException {
                 .errorMessage(baseException.getMessage())
                 .timeStamp(new Timestamp(date.getTime()).toString())
                 .build();
-        log.info(errorTemplate.toString());
+        log.error(errorTemplate.toString());
         return ResponseEntity.status(baseException.getReturnCode().getHttpStatus()).body(errorTemplate);
     }
 }
