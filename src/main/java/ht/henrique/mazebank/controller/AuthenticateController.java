@@ -2,6 +2,7 @@ package ht.henrique.mazebank.controller;
 
 import ht.henrique.mazebank.exception.ControllerException;
 import ht.henrique.mazebank.exception.DatabaseException;
+import ht.henrique.mazebank.exception.UtilsException;
 import ht.henrique.mazebank.model.BaseResponse;
 import ht.henrique.mazebank.model.authenticate.AuthenticateRequest;
 import ht.henrique.mazebank.model.type.ReturnCode;
@@ -26,7 +27,7 @@ public class AuthenticateController {
     @PostMapping("/user")
     public ResponseEntity<BaseResponse> authenticateUser(
             @RequestBody(required = false) AuthenticateRequest authenticateRequest
-    ) throws ControllerException, DatabaseException {
+    ) throws ControllerException, DatabaseException, UtilsException {
 
         if (authenticateRequest == null || authenticateRequest.getUsername() == null || authenticateRequest.getUserpass() == null){
             log.info("Invalid parameters");

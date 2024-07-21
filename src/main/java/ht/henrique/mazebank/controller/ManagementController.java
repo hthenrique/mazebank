@@ -2,9 +2,11 @@ package ht.henrique.mazebank.controller;
 
 import ht.henrique.mazebank.exception.ControllerException;
 import ht.henrique.mazebank.exception.DatabaseException;
+import ht.henrique.mazebank.exception.ValidationException;
 import ht.henrique.mazebank.model.BaseResponse;
 import ht.henrique.mazebank.model.Response;
 import ht.henrique.mazebank.model.create.CreateRequest;
+import ht.henrique.mazebank.model.deposit.DepositRequest;
 import ht.henrique.mazebank.model.type.ReturnCode;
 import ht.henrique.mazebank.service.ManagementService;
 import lombok.extern.slf4j.Slf4j;
@@ -39,5 +41,10 @@ public class ManagementController {
         return ResponseEntity.ok(new BaseResponse(ReturnCode.SUCCESS.getCode(), managementService.getUser(userKey)));
     }
 
+    @PostMapping("/deposit/user")
+    public ResponseEntity<BaseResponse> depositBalance(@RequestBody(required = false) DepositRequest depositRequest,
+            @RequestHeader(value = "user-uid", required = false) String uid) throws DatabaseException, ValidationException {
+        return ResponseEntity.ok(managementService.depositBalance(uid, depositRequest));
+    }
 
 }
