@@ -45,12 +45,16 @@ public class ManagementServiceImpl implements ManagementService {
     }
 
     @Override
-    public BaseResponse createUser(CreateRequest createRequest) throws DatabaseException {
+    public BaseResponse createUser(CreateRequest createRequest) throws DatabaseException, ValidationException {
          User user = findUserInCollection("_userEmail", createRequest.getUseremail());
          if (user != null){
              log.info(String.format("User already exists with uid %s", user.get_id()));
              throw new DatabaseException(ReturnCode.USER_ALREADY_EXISTS, "User already exists");
          }
+
+        if (!isValidEmail(createRequest.getUseremail())) {
+            throw new ValidationException(ReturnCode.INVALID_PARAMETERS, "Invalid email");
+        }
 
         try {
             Document document = new Document();
@@ -85,30 +89,26 @@ public class ManagementServiceImpl implements ManagementService {
         ObjectId objectId = new ObjectId(uid);
         User user = findUserInCollection("_id", objectId);
         verifyIfUserExists(user);
-        if (depositRequest.getValue()== null || depositRequest.getValue().equals("")){
+        if (depositRequest.getValue() == null || depositRequest.getValue().equals("")) {
             throw new ValidationException(ReturnCode.INVALID_PARAMETERS, "Balance is empty");
         }
+        assert user != null;
         Decimal128 newBalance = new Decimal128(BigDecimal.valueOf((user.get_userBalance().bigDecimalValue()).floatValue() + depositRequest.getValue()));
         Document update = new Document("$set", new Document("_userBalance", newBalance));
         collection.updateOne(new Document("_id", objectId), update);
-        return null;
+        return new BaseResponse(ReturnCode.SUCCESS.getCode(), null);
     }
 
     private User findUserInCollection(String attribute, Object searchValue) throws DatabaseException {
         log.info(String.format("Searching user with key: %s", searchValue));
-        User user = null;
-        try{
+        try {
             Document filter = new Document(attribute, searchValue);
-            MongoCursor<Document> cursor = collection.find(filter).iterator();
-            while (cursor.hasNext()) {
-                user = new User(cursor.next());
-            }
-            cursor.close();
-        }catch (Exception e){
+            Document document = collection.find(filter).first();
+            return document != null ? new User(document) : null;
+        } catch (Exception e) {
             log.error(e.getLocalizedMessage());
             throw new DatabaseException(ReturnCode.INTERNAL_SERVER_ERROR, "Internal error in database");
         }
-        return user;
     }
 
     private void verifyIfUserExists(User user) throws DatabaseException {
@@ -116,5 +116,10 @@ public class ManagementServiceImpl implements ManagementService {
             log.error("User not found");
             throw new DatabaseException(ReturnCode.NOT_FOUND, "User not found");
         }
+    }
+
+    private boolean isValidEmail(String email) {
+        String emailRegex = "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$";
+        return email.matches(emailRegex);
     }
 }

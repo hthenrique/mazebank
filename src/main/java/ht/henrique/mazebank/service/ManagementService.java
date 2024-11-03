@@ -10,7 +10,7 @@ import ht.henrique.mazebank.model.fetch.FetchUserResponse;
 
 public interface ManagementService {
 
-    BaseResponse createUser(CreateRequest createRequest) throws DatabaseException;
+    BaseResponse createUser(CreateRequest createRequest) throws DatabaseException, ValidationException;
     FetchUserResponse getUser(String userKey) throws DatabaseException;
     User findUserInDatabase(String userKey) throws DatabaseException;
     BaseResponse depositBalance(String uid, DepositRequest depositRequest) throws DatabaseException, ValidationException;
