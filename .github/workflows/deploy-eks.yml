@@ -3,7 +3,7 @@ name: Deploy Docker to EKS
 on:
   workflow_dispatch:
   push:
-    branches: ["main", "master"]
+    tags: ["v*"]
 
 permissions:
   contents: read
@@ -52,7 +52,7 @@ jobs:
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: ${{ github.ref_name }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG

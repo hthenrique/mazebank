@@ -1,0 +1,101 @@
+name: Release Version
+
+on:
+  push:
+    branches: ["master"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  JAVA_VERSION: "17"
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'chore(release):')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Ensure Maven wrapper is executable
+        run: chmod +x mvnw
+
+      - name: Determine next version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CURRENT_VERSION=$(grep -m1 '<version>' pom.xml | sed -E 's/.*<version>([^<]+)<\/version>.*/\1/')
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
+
+          if [ -n "$LAST_TAG" ]; then
+            COMMITS=$(git log "${LAST_TAG}..HEAD" --pretty=%s)
+          else
+            COMMITS=$(git log --pretty=%s)
+          fi
+
+          BUMP=patch
+          if echo "$COMMITS" | grep -Eq '(^|[[:space:]])BREAKING CHANGE|!:'; then
+            BUMP=major
+          elif echo "$COMMITS" | grep -Eq '^feat(\(.+\))?:'; then
+            BUMP=minor
+          fi
+
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          case "$BUMP" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEXT_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "current=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "next=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Stop if tag already exists
+        shell: bash
+        run: |
+          if git rev-parse "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Tag ${{ steps.version.outputs.tag }} already exists."
+            exit 1
+          fi
+
+      - name: Update pom version
+        run: ./mvnw -B versions:set -DnewVersion=${{ steps.version.outputs.next }} -DgenerateBackupPoms=false
+
+      - name: Commit version bump and create tag
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pom.xml
+          git commit -m "chore(release): v${{ steps.version.outputs.next }} [skip ci]"
+          git tag "${{ steps.version.outputs.tag }}"
+
+      - name: Push commit and tag
+        run: |
+          git push origin HEAD:master
+          git push origin "${{ steps.version.outputs.tag }}"
