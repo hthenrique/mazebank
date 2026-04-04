@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: mazebank
-          image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/mazebank:latest
+          image: 650468121963.dkr.ecr.us-east-2.amazonaws.com/mzb/mazebank:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
