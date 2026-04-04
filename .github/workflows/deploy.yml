@@ -1,0 +1,100 @@
+name: Deploy Docker to Elastic Beanstalk
+
+on:
+  push:
+    branches: ["main", "master"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  JAVA_VERSION: "17"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      EB_APPLICATION_NAME: ${{ vars.EB_APPLICATION_NAME }}
+      EB_ENVIRONMENT_NAME: ${{ vars.EB_ENVIRONMENT_NAME }}
+      EB_S3_BUCKET: ${{ vars.EB_S3_BUCKET }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Ensure Maven wrapper is executable
+        run: chmod +x mvnw
+
+      - name: Build and verify
+        run: ./mvnw -B clean verify
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Create Dockerrun bundle
+        env:
+          IMAGE_URI: ${{ steps.build-image.outputs.image }}
+          VERSION_LABEL: ${{ github.ref_name }}-${{ github.sha }}
+        run: |
+          cat > Dockerrun.aws.json <<EOF
+          {
+            "AWSEBDockerrunVersion": "1",
+            "Image": {
+              "Name": "${IMAGE_URI}",
+              "Update": "true"
+            },
+            "Ports": [
+              {
+                "ContainerPort": "8080"
+              }
+            ]
+          }
+          EOF
+          zip -r deploy.zip Dockerrun.aws.json
+          echo "version_label=${VERSION_LABEL}" >> $GITHUB_ENV
+
+      - name: Upload application bundle to S3
+        run: aws s3 cp deploy.zip s3://$EB_S3_BUCKET/$EB_APPLICATION_NAME/$VERSION_LABEL.zip
+
+      - name: Create Elastic Beanstalk application version
+        run: >
+          aws elasticbeanstalk create-application-version
+          --application-name "$EB_APPLICATION_NAME"
+          --version-label "$VERSION_LABEL"
+          --source-bundle S3Bucket="$EB_S3_BUCKET",S3Key="$EB_APPLICATION_NAME/$VERSION_LABEL.zip"
+
+      - name: Update Elastic Beanstalk environment
+        run: >
+          aws elasticbeanstalk update-environment
+          --environment-name "$EB_ENVIRONMENT_NAME"
+          --version-label "$VERSION_LABEL"

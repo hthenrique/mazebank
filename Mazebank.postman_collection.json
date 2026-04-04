@@ -1,0 +1,121 @@
+{
+  "info": {
+    "_postman_id": "0aee32e6-2f55-4d07-9a2a-c59fa5ccd3e8",
+    "name": "Mazebank",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "9617620",
+    "_collection_link": "https://go.postman.co/collection/9617620-0aee32e6-2f55-4d07-9a2a-c59fa5ccd3e8?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Authenticate User",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"username\": \"henrique@email.com\",\r\n    \"userpass\": \"1234\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{service-url}}/mazebank/authenticate/user",
+          "host": [
+            "{{service-url}}"
+          ],
+          "path": [
+            "mazebank",
+            "authenticate",
+            "user"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Deposit",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"username\": \"henrique@email.com\",\r\n    \"userpass\": \"1234\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{service-url}}/mazebank/authenticate/user",
+          "host": [
+            "{{service-url}}"
+          ],
+          "path": [
+            "mazebank",
+            "authenticate",
+            "user"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create User",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"username\": \"Maria\",\r\n    \"useremail\": \"maria@email.com\",\r\n    \"userpass\": \"1234\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{service-url}}/mazebank/management/create",
+          "host": [
+            "{{service-url}}"
+          ],
+          "path": [
+            "mazebank",
+            "management",
+            "create"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Find User",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "user-key",
+            "value": "maria@email.com",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{service-url}}/mazebank/management/fetch/user",
+          "host": [
+            "{{service-url}}"
+          ],
+          "path": [
+            "mazebank",
+            "management",
+            "fetch",
+            "user"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
