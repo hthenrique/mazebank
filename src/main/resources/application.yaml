@@ -1,8 +1,18 @@
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
 server:
   port: ${PORT:8080}
   servlet:
     context-path: /mazebank
 
-mongo:
-  connection:
-    url: ${MONGO_CONNECTION_URL:mongodb+srv://mazebank:mazebank@mazebankcluster.dddrndp.mongodb.net/?retryWrites=true&w=majority}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true

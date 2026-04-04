@@ -1,36 +1,33 @@
-# Use a versão específica da sintaxe do Dockerfile
-# Veja mais detalhes em https://docs.docker.com/go/dockerfile-reference/
-# Este comentário é ignorado quando a imagem é criada.
-
-################################################################################
-
-# Crie uma etapa para resolver e baixar as dependências.
-FROM maven:3.8.4-jdk-11 AS build
-
+FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /app
 
-# Copie apenas o arquivo pom.xml inicial para aproveitar o cache do Docker
-COPY pom.xml .
+COPY .mvn .mvn
+COPY mvnw pom.xml ./
+RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
+RUN MAVEN_CONFIG='' ./mvnw dependency:go-offline -B
 
-# Baixe as dependências como uma etapa separada para aproveitar o cache do Docker.
-RUN mvn dependency:go-offline -B
+COPY src src
+RUN MAVEN_CONFIG='' ./mvnw clean package -DskipTests
 
-# Copie todos os arquivos do projeto e compile o aplicativo
-COPY src src/
-RUN mvn package -DskipTests
-
-################################################################################
-
-# Crie uma etapa final para executar o aplicativo compilado
-FROM openjdk:11-jre-slim
-
+FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 
-# Copie o JAR compilado da etapa anterior
-COPY --from=build /app/target/*.jar mazebank.jar
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system app \
+    && useradd --system --gid app --create-home app \
+    && mkdir -p /app/logs \
+    && chown -R app:app /app
 
-# Exponha a porta onde o aplicativo Spring Boot estará escutando
+COPY --from=build /app/target/*.jar /app/app.jar
+
+ENV PORT=8080
+ENV JAVA_OPTS=""
+
+USER app
 EXPOSE 8080
 
-# Especifica o comando de entrada para executar o aplicativo
-ENTRYPOINT ["java", "-jar", "mazebank.jar"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 CMD sh -c "curl --fail http://127.0.0.1:${PORT}/mazebank/actuator/health || exit 1"
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -XX:MaxRAMPercentage=75.0 -jar /app/app.jar"]

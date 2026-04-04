@@ -7,7 +7,7 @@ import lombok.Data;
 @Builder
 public class ErrorTemplate {
 
-    private Integer errorCode;
+    private String errorCode;
     private String errorMessage;
     private String timeStamp;
 }
