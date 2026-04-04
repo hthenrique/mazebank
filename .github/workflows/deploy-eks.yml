@@ -2,6 +2,11 @@ name: Deploy Docker to EKS
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Tag da release para deploy ou rollback, ex: v1.0.4"
+        required: false
+        type: string
   push:
     tags: ["v*"]
 
@@ -41,14 +46,22 @@ jobs:
         run: |
           set -euo pipefail
           POM_VERSION=$(grep -m1 '<version>' pom.xml | sed -E 's/.*<version>([^<]+)<\/version>.*/\1/')
-          IMAGE_TAG="v${POM_VERSION}"
+          DEFAULT_IMAGE_TAG="v${POM_VERSION}"
+          INPUT_TAG="${{ github.event.inputs.release_tag }}"
 
-          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "${IMAGE_TAG}" ]]; then
-            echo "Git tag (${GITHUB_REF_NAME}) and pom version (${IMAGE_TAG}) are out of sync."
+          if [[ -n "${INPUT_TAG}" ]]; then
+            IMAGE_TAG="${INPUT_TAG}"
+          else
+            IMAGE_TAG="${DEFAULT_IMAGE_TAG}"
+          fi
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && -z "${INPUT_TAG}" && "${GITHUB_REF_NAME}" != "${DEFAULT_IMAGE_TAG}" ]]; then
+            echo "Git tag (${GITHUB_REF_NAME}) and pom version (${DEFAULT_IMAGE_TAG}) are out of sync."
             exit 1
           fi
 
           echo "pom_version=${POM_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "default_image_tag=${DEFAULT_IMAGE_TAG}" >> "$GITHUB_OUTPUT"
           echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Build and verify

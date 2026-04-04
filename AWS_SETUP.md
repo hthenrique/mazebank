@@ -218,6 +218,7 @@ Comportamento atual:
 
 - `release-version.yml` roda na `master`, calcula a proxima versao a partir de commits semanticos, atualiza o `pom.xml`, cria commit de release, publica a tag Git e cria uma `GitHub Release`
 - `deploy-eks.yml` faz deploy automatico no EKS quando uma tag `v*` e publicada
+- `deploy-eks.yml` tambem pode ser executado manualmente com o input `release_tag` para publicar ou fazer rollback para uma tag especifica
 - `deploy.yml` de Elastic Beanstalk foi deixado apenas para execucao manual
 
 ## GitHub Repository Variables
@@ -271,6 +272,24 @@ Observacao importante:
 13. Cria/atualiza o secret `mazebank-secrets`
 14. Aplica os manifests Kubernetes
 15. Aguarda o rollout do deployment
+
+## Rollback manual
+
+O workflow `deploy-eks.yml` aceita execucao manual via `workflow_dispatch`.
+
+Input disponivel:
+
+- `release_tag`
+
+Exemplo:
+
+- `v1.0.4`
+
+Comportamento:
+
+- se `release_tag` for informado, o workflow tenta reutilizar a imagem dessa tag no ECR
+- se a imagem existir, o deploy aplica essa versao no EKS
+- isso permite rollback sem rebuildar a imagem
 
 ## Problemas ja identificados durante a configuracao
 
