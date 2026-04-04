@@ -35,6 +35,8 @@ Observacao:
 - o deploy usa tag de release semantica
 - formato atual da tag:
   - `v<major>.<minor>.<patch>`
+- a tag da imagem e derivada da versao do `pom.xml`
+- se a imagem dessa versao ja existir no ECR, o workflow reutiliza a imagem em vez de tentar sobrescrever
 
 ## Amazon EKS
 
@@ -50,6 +52,31 @@ Observacao:
 
 - o nome do cluster e o nome do repositorio ECR sao independentes
 - o namespace Kubernetes tambem e independente do ECR
+- o EKS nao e uma opcao sem custo; ha cobranca pelo cluster e pelos recursos de compute
+
+## Node group para laboratorio
+
+Para um ambiente inicial de menor custo possivel, a configuracao recomendada do managed node group e:
+
+- `Desired size = 1`
+- `Minimum size = 1`
+- `Maximum size = 1`
+- `Disk size = 20 GiB`
+- uma unica instancia no node group
+- uma unica familia/tipo de instancia pequena
+
+Configuracao de update observada:
+
+- `Maximum unavailable = 1`
+- `Update strategy = Default`
+
+Observacao:
+
+- essa configuracao reduz custo, mas nao elimina cobranca
+- se nao existir node group ou profile adequado, os pods ficam em `Pending`
+- o erro visto na console foi:
+  - `FailedScheduling`
+  - `no nodes available to schedule pods`
 
 ## IAM OIDC Provider
 
@@ -238,6 +265,7 @@ Observacao importante:
 8. Builda a imagem Docker
 9. Faz login no ECR
 10. Publica a imagem com a mesma tag da release
+   - se a imagem ja existir, o workflow reutiliza a tag existente
 11. Atualiza o kubeconfig com `aws eks update-kubeconfig`
 12. Cria/atualiza o secret `mazebank-secrets`
 13. Aplica os manifests Kubernetes
@@ -255,6 +283,7 @@ Observacao importante:
 8. para o workflow atual funcionar, a access entry da role `github-actions-eks-deploy` precisa usar `AmazonEKSClusterAdminPolicy` com escopo `Cluster`
 9. com tag immutability habilitada no ECR, usar apenas `github.sha` faz a reexecucao do mesmo commit falhar com `tag invalid`
 10. o fluxo foi alterado para usar versao semantica como tag de release e de imagem
+11. se o workflow for executado novamente por erro de infraestrutura AWS, a imagem existente da mesma versao deve ser reutilizada em vez de gerar erro por tag imutavel
 
 ## Pendencias para confirmar
 
