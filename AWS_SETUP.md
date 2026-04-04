@@ -216,7 +216,7 @@ Workflows relevantes no repositorio:
 
 Comportamento atual:
 
-- `release-version.yml` roda na `master`, calcula a proxima versao a partir de commits semanticos, atualiza o `pom.xml`, cria commit de release e publica a tag Git
+- `release-version.yml` roda na `master`, calcula a proxima versao a partir de commits semanticos, atualiza o `pom.xml`, cria commit de release, publica a tag Git e cria uma `GitHub Release`
 - `deploy-eks.yml` faz deploy automatico no EKS quando uma tag `v*` e publicada
 - `deploy.yml` de Elastic Beanstalk foi deixado apenas para execucao manual
 
@@ -260,16 +260,17 @@ Observacao importante:
 3. O workflow atualiza o `pom.xml`
 4. O workflow cria commit `chore(release): vX.Y.Z [skip ci]`
 5. O workflow cria a tag Git `vX.Y.Z`
-6. A publicacao da tag dispara o workflow de deploy do EKS
-7. O workflow de deploy builda a aplicacao com Maven
-8. Builda a imagem Docker
-9. Faz login no ECR
-10. Publica a imagem com a mesma tag da release
+6. O workflow cria a `GitHub Release`
+7. A publicacao da tag dispara o workflow de deploy do EKS
+8. O workflow de deploy builda a aplicacao com Maven
+9. Builda a imagem Docker
+10. Faz login no ECR
+11. Publica a imagem com a mesma tag da release
    - se a imagem ja existir, o workflow reutiliza a tag existente
-11. Atualiza o kubeconfig com `aws eks update-kubeconfig`
-12. Cria/atualiza o secret `mazebank-secrets`
-13. Aplica os manifests Kubernetes
-14. Aguarda o rollout do deployment
+12. Atualiza o kubeconfig com `aws eks update-kubeconfig`
+13. Cria/atualiza o secret `mazebank-secrets`
+14. Aplica os manifests Kubernetes
+15. Aguarda o rollout do deployment
 
 ## Problemas ja identificados durante a configuracao
 
