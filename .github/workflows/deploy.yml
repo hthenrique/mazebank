@@ -1,8 +1,6 @@
 name: Deploy Docker to Elastic Beanstalk
 
 on:
-  push:
-    branches: ["main", "master"]
   workflow_dispatch:
 
 permissions:
