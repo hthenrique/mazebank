@@ -124,3 +124,12 @@ jobs:
 
       - name: Wait for rollout
         run: kubectl -n $K8S_NAMESPACE rollout status deployment/mazebank --timeout=180s
+
+      - name: Collect Kubernetes diagnostics on failure
+        if: failure()
+        run: |
+          kubectl get all -n $K8S_NAMESPACE || true
+          kubectl get events -n $K8S_NAMESPACE --sort-by=.metadata.creationTimestamp || true
+          kubectl describe deployment mazebank -n $K8S_NAMESPACE || true
+          kubectl describe pods -n $K8S_NAMESPACE || true
+          kubectl logs -n $K8S_NAMESPACE deployment/mazebank --all-containers=true || true
