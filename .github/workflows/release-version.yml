@@ -99,3 +99,11 @@ jobs:
         run: |
           git push origin HEAD:master
           git push origin "${{ steps.version.outputs.tag }}"
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --title "${{ steps.version.outputs.tag }}" \
+            --notes "Release ${{ steps.version.outputs.tag }}"

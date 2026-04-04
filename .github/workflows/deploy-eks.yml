@@ -35,6 +35,22 @@ jobs:
       - name: Ensure Maven wrapper is executable
         run: chmod +x mvnw
 
+      - name: Determine release version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          POM_VERSION=$(grep -m1 '<version>' pom.xml | sed -E 's/.*<version>([^<]+)<\/version>.*/\1/')
+          IMAGE_TAG="v${POM_VERSION}"
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "${IMAGE_TAG}" ]]; then
+            echo "Git tag (${GITHUB_REF_NAME}) and pom version (${IMAGE_TAG}) are out of sync."
+            exit 1
+          fi
+
+          echo "pom_version=${POM_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+
       - name: Build and verify
         run: ./mvnw -B clean verify
 
@@ -48,15 +64,36 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Check if image tag already exists
+        id: image-check
+        env:
+          IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
+        shell: bash
+        run: |
+          if aws ecr describe-images --repository-name "$ECR_REPOSITORY" --image-ids imageTag="$IMAGE_TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build and push Docker image
         id: build-image
+        if: steps.image-check.outputs.exists == 'false'
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.ref_name }}
+          IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Reuse existing Docker image
+        id: existing-image
+        if: steps.image-check.outputs.exists == 'true'
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
+        run: echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
@@ -77,7 +114,7 @@ jobs:
 
       - name: Deploy manifests
         env:
-          IMAGE_URI: ${{ steps.build-image.outputs.image }}
+          IMAGE_URI: ${{ steps.build-image.outputs.image || steps.existing-image.outputs.image }}
         run: |
           kubectl apply -f k8s/namespace.yaml
           kubectl apply -f k8s/configmap.yaml
