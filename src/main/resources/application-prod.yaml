@@ -1,8 +1,0 @@
-spring:
-  config:
-    activate:
-      on-profile: prod
-
-mongo:
-  connection:
-    url: ${MONGO_CONNECTION_URL}

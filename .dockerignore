@@ -14,5 +14,4 @@ obj
 .cache
 docker-compose.yaml
 docker-compose.yml
-docker-compose.yaml
 README.md

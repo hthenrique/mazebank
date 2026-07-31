@@ -174,6 +174,7 @@ echo Comandos uteis:
 echo   kubectl get pods -n mazebank
 echo   kubectl get ingress -n mazebank
 echo   kubectl logs -n mazebank deploy/mazebank
+echo   scripts\k8s-debug-local.bat start   # Mongo no host + IntelliJ (.env.local.example)
 echo   kind delete cluster --name %CLUSTER_NAME%
 
 endlocal

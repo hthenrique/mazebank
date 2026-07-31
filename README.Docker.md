@@ -1,9 +1,18 @@
-### Building and running your application
+### Ambiente local recomendado (Kind)
 
-When you're ready, start your application by running:
-`docker compose up --build`.
+No Linux/WSL, use Kind para não ocupar `8080`/`27017` no host:
 
-Your application will be available at http://localhost:8080.
+```bash
+./deploy-local-k8s.sh
+```
+
+URL: http://mazebank.local/mazebank/actuator/health  
+
+Debug no IntelliJ (Mongo do Kind, sem Atlas): `./scripts/k8s-debug-local.sh start` e cole `env.conf` na Run Configuration. Ver `k8s/local/README.md`.
+
+### Docker Compose (legado)
+
+`docker compose up --build` sobe app + Mongo nas portas do host (`8080`, `27017`) e pode conflitar com outros serviços.
 
 ### Deploying your application to the cloud
 

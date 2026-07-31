@@ -1,3 +1,4 @@
+# Deploy (EKS): profile prod. Mongo Atlas vem do Secret mazebank-secrets.
 apiVersion: v1
 kind: ConfigMap
 metadata:

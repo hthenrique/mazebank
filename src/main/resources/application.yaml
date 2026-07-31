@@ -16,3 +16,7 @@ management:
     health:
       probes:
         enabled: true
+
+mongo:
+  connection:
+    url: ${MONGO_CONNECTION_URL:mongodb://127.0.0.1:27017}

@@ -36,3 +36,8 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### Env / secrets (nunca commitar valores reais) ###
+.env
+.env.local
+k8s/secret.yaml

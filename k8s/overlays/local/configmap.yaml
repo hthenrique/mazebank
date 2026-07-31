@@ -1,3 +1,4 @@
+# App no Kind: profile local + Mongo do proprio cluster (nao Atlas).
 apiVersion: v1
 kind: ConfigMap
 metadata:

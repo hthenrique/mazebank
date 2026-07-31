@@ -1,0 +1,336 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "MazeBank",
+    "description": "Collection da API MazeBank (local).\n\nFluxo sugerido:\n1. Health Check\n2. Create User\n3. Authenticate User (username = email)\n4. Fetch User (salva userUid)\n5. Deposit User\n6. Fetch User (After Deposit)\n\nImportar: Postman → Import → este arquivo.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/mazebank" },
+    { "key": "username", "value": "Postman User" },
+    { "key": "userEmail", "value": "postman.user@mazebank.local" },
+    { "key": "userPass", "value": "Senha@123" },
+    { "key": "userUid", "value": "" },
+    { "key": "depositValue", "value": "50.5" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('App UP', function () {",
+                  "  pm.expect(pm.response.json().status).to.eql('UP');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/actuator/health",
+            "description": "Verifica se a aplicacao esta no ar."
+          },
+          "response": [
+            {
+              "name": "UP",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/actuator/health"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"status\": \"UP\",\n  \"groups\": [\"liveness\", \"readiness\"]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Management",
+      "item": [
+        {
+          "name": "Create User",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const stamp = Date.now();",
+                  "pm.collectionVariables.set('username', `Postman User ${stamp}`);",
+                  "pm.collectionVariables.set('userEmail', `postman.user.${stamp}@mazebank.local`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Create success code', function () {",
+                  "  pm.expect(pm.response.json().code).to.eql('201000');",
+                  "});",
+                  "console.log('Created userEmail=', pm.collectionVariables.get('userEmail'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"useremail\": \"{{userEmail}}\",\n  \"userpass\": \"{{userPass}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/management/create",
+            "description": "Cria usuario. Pre-request gera email unico. Saldo inicial: 100."
+          },
+          "response": [
+            {
+              "name": "Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"Postman User\",\n  \"useremail\": \"postman.user@mazebank.local\",\n  \"userpass\": \"Senha@123\"\n}"
+                },
+                "url": "{{baseUrl}}/management/create"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"code\": \"201000\",\n  \"response\": {\n    \"message\": \"Success\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Fetch User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Success code', function () {",
+                  "  pm.expect(json.code).to.eql('200000');",
+                  "});",
+                  "if (json.response && json.response.uid) {",
+                  "  pm.collectionVariables.set('userUid', json.response.uid);",
+                  "  console.log('Saved userUid=', json.response.uid);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "user-key",
+                "value": "{{userEmail}}",
+                "description": "Email do usuario (_userEmail)"
+              }
+            ],
+            "url": "{{baseUrl}}/management/fetch/user",
+            "description": "Busca usuario pelo email no header user-key. Salva response.uid em {{userUid}}."
+          },
+          "response": [
+            {
+              "name": "User found",
+              "originalRequest": {
+                "method": "GET",
+                "header": [{ "key": "user-key", "value": "{{userEmail}}" }],
+                "url": "{{baseUrl}}/management/fetch/user"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"code\": \"200000\",\n  \"response\": {\n    \"uid\": \"6a67becfd6b2641fcab938f3\",\n    \"userName\": \"Postman User 20260727172551\",\n    \"userEmail\": \"postman.user.20260727172551@mazebank.local\",\n    \"userCreateDate\": \"2026-07-27T17:25:51.752561500\",\n    \"userBalance\": 100\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Deposit User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Success code', function () {",
+                  "  pm.expect(pm.response.json().code).to.eql('200000');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              {
+                "key": "user-uid",
+                "value": "{{userUid}}",
+                "description": "ObjectId do usuario (vindo do Fetch User)"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": {{depositValue}}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/management/deposit/user",
+            "description": "Deposita valor no saldo. Requer header user-uid (ObjectId)."
+          },
+          "response": [
+            {
+              "name": "Deposit success",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "user-uid", "value": "{{userUid}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"value\": 50.5\n}"
+                },
+                "url": "{{baseUrl}}/management/deposit/user"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"code\": \"200000\",\n  \"response\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Fetch User (After Deposit)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Balance increased', function () {",
+                  "  pm.expect(json.response.userBalance).to.be.above(100);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "user-key", "value": "{{userEmail}}" }],
+            "url": "{{baseUrl}}/management/fetch/user",
+            "description": "Confirma saldo apos deposito (ex.: 100 + 50.5 = 150.5)."
+          },
+          "response": [
+            {
+              "name": "Balance after deposit",
+              "originalRequest": {
+                "method": "GET",
+                "header": [{ "key": "user-key", "value": "{{userEmail}}" }],
+                "url": "{{baseUrl}}/management/fetch/user"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"code\": \"200000\",\n  \"response\": {\n    \"uid\": \"6a67becfd6b2641fcab938f3\",\n    \"userName\": \"Postman User 20260727172551\",\n    \"userEmail\": \"postman.user.20260727172551@mazebank.local\",\n    \"userCreateDate\": \"2026-07-27T17:25:51.752561500\",\n    \"userBalance\": 150.5\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Authenticate",
+      "item": [
+        {
+          "name": "Authenticate User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Auth success', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.code).to.eql('200000');",
+                  "  pm.expect(json.response.message).to.eql('Success');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{userEmail}}\",\n  \"userpass\": \"{{userPass}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/authenticate/user",
+            "description": "Autentica usuario. Campo username deve ser o EMAIL (API busca por _userEmail)."
+          },
+          "response": [
+            {
+              "name": "Authenticated",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"postman.user@mazebank.local\",\n  \"userpass\": \"Senha@123\"\n}"
+                },
+                "url": "{{baseUrl}}/authenticate/user"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"code\": \"200000\",\n  \"response\": {\n    \"message\": \"Success\"\n  }\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

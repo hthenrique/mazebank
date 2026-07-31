@@ -4,6 +4,7 @@ namespace: mazebank
 resources:
   - namespace.yaml
   - configmap.yaml
+  - mongo-pvc.yaml
   - mongo-deployment.yaml
   - mongo-service.yaml
   - deployment.yaml
