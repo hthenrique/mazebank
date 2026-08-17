@@ -53,14 +53,14 @@ public class ManagementServiceImpl implements ManagementService {
              throw new DatabaseException(ReturnCode.USER_ALREADY_EXISTS, "User already exists");
          }
 
-        if (!isValidEmail(createRequest.getUseremail().trim().toLowerCase(Locale.ROOT))) {
+        if (!isValidEmail(createRequest.getUseremail())) {
             throw new ValidationException(ReturnCode.INVALID_PARAMETERS, "Invalid email");
         }
 
         try {
             Document document = new Document();
             document.append("_userName", createRequest.getUsername());
-            document.append("_userEmail", createRequest.getUseremail().trim().toLowerCase(Locale.ROOT));
+            document.append("_userEmail", createRequest.getUseremail());
             document.append("_userPass", HashString.hash(createRequest.getUserpass()));
             document.append("_userCreatedAt", LocalDateTime.now().toString());
             document.append("_userBalance", BigDecimal.valueOf(100));
