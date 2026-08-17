@@ -1,0 +1,38 @@
+replicaCount: 1
+
+image:
+  repository: mazebank
+  pullPolicy: IfNotPresent
+  tag: "local"
+
+config:
+  springProfilesActive: local
+  port: "8080"
+  mongoConnectionUrl: mongodb://mazebank-user:mazebank@mazebank-cluster-svc.mongodb:27017/mazebank?authSource=admin
+
+secret:
+  create: false
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    kubernetes.io/ingress.class: null
+  hosts:
+    - mazebank.local
+  path: /mazebank
+  pathType: Prefix
+
+probes:
+  readiness:
+    initialDelaySeconds: 0
+  liveness:
+    initialDelaySeconds: 0
+  startup:
+    enabled: true
+    path: /mazebank/actuator/health/liveness
+    periodSeconds: 5
+    failureThreshold: 30
+
+mongodb:
+  enabled: false # Usando o MongoDB existente no namespace 'mongodb'

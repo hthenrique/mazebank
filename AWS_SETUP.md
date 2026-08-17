@@ -236,20 +236,17 @@ Secrets necessarios:
 - `AWS_ROLE_ARN = arn:aws:iam::650468121963:role/github-actions-eks-deploy`
 - `MONGO_CONNECTION_URL = <string de conexao real do MongoDB>`
 
-## Manifests Kubernetes no projeto
+## Helm Chart Kubernetes no projeto
 
-Arquivos principais para AWS/EKS:
+Helm Chart unificado para deploy em AWS/EKS e ambiente local:
 
-- [k8s/namespace.yaml](I:/Projetos/Java/mazebank/k8s/namespace.yaml)
-- [k8s/configmap.yaml](I:/Projetos/Java/mazebank/k8s/configmap.yaml)
-- [k8s/secret.example.yaml](I:/Projetos/Java/mazebank/k8s/secret.example.yaml)
-- [k8s/deployment.yaml](I:/Projetos/Java/mazebank/k8s/deployment.yaml)
-- [k8s/service.yaml](I:/Projetos/Java/mazebank/k8s/service.yaml)
-- [k8s/ingress.yaml](I:/Projetos/Java/mazebank/k8s/ingress.yaml)
+- Chart principal: [`helm/mazebank/`](helm/mazebank/)
+- Configurações de Produção (EKS): [`helm/mazebank/values.yaml`](helm/mazebank/values.yaml)
+- Sobrescritas para Dev Local (Kind): [`helm/mazebank/values-local.yaml`](helm/mazebank/values-local.yaml)
 
-Observacao importante:
+Observação importante:
 
-- o `deployment.yaml` usa uma imagem placeholder e o workflow substitui pelo URI real da imagem publicada no ECR
+- O workflow do GitHub Actions faz o deploy via `helm upgrade --install` sobrescrevendo a imagem do ECR e o Secret do Mongo Atlas dinamicamente.
 
 ## Fluxo esperado de deploy no EKS
 

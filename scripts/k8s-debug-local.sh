@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Publica o Mongo do Kind em localhost para debug no IntelliJ/Maven.
+# Publica o Mongo do Kind (namespace mongodb) em localhost para debug no IntelliJ/Maven.
 # Mantem a app no cluster rodando (Ingress em mazebank.local).
-# A app local usa as variaveis de env.conf.
 
-NAMESPACE="mazebank"
+NAMESPACE="mongodb"
 MONGO_LOCAL_PORT="${MONGO_LOCAL_PORT:-27017}"
 APP_LOCAL_PORT="${APP_LOCAL_PORT:-8080}"
 PID_FILE="${TMPDIR:-/tmp}/mazebank-mongo-port-forward.pid"
@@ -14,7 +13,7 @@ usage() {
   cat <<EOF
 Uso: $0 <start|stop|status>
 
-  start   Publica Mongo do Kind em localhost:${MONGO_LOCAL_PORT} (app no cluster continua)
+  start   Publica Mongo do Kind (${NAMESPACE}) em localhost:${MONGO_LOCAL_PORT}
   stop    Encerra o port-forward
   status  Mostra estado do port-forward e dos pods
 
@@ -22,11 +21,11 @@ Variaveis opcionais:
   MONGO_LOCAL_PORT  (default: 27017)
   APP_LOCAL_PORT    (default: 8080) — so informativo
 
-IntelliJ: copie as variaveis de .env.local.example para a Run Configuration.
+IntelliJ: use as variaveis:
 
   PORT=${APP_LOCAL_PORT}
   SPRING_PROFILES_ACTIVE=local
-  MONGO_CONNECTION_URL=mongodb://127.0.0.1:${MONGO_LOCAL_PORT}
+  MONGO_CONNECTION_URL=mongodb://mazebank-user:mazebank@127.0.0.1:${MONGO_LOCAL_PORT}/mazebank?authSource=admin
 EOF
 }
 
@@ -47,21 +46,21 @@ stop_port_forward() {
     fi
     rm -f "$PID_FILE"
   fi
-  pkill -f "port-forward svc/mongo ${MONGO_LOCAL_PORT}:27017" 2>/dev/null || true
+  pkill -f "port-forward svc/mazebank-cluster-svc ${MONGO_LOCAL_PORT}:27017" 2>/dev/null || true
 }
 
 cmd_start() {
   require_kubectl
 
   if ! kubectl get ns "$NAMESPACE" >/dev/null 2>&1; then
-    echo "Namespace ${NAMESPACE} nao encontrado. Rode ./deploy-local-k8s.sh antes."
+    echo "Namespace ${NAMESPACE} nao encontrado. Rode ./scripts/deploy-local-k8s.sh antes."
     exit 1
   fi
 
   stop_port_forward
 
-  echo "Publicando Mongo do Kind em 127.0.0.1:${MONGO_LOCAL_PORT}..."
-  kubectl -n "$NAMESPACE" port-forward svc/mongo "${MONGO_LOCAL_PORT}:27017" >/dev/null 2>&1 &
+  echo "Publicando Mongo do Kind (${NAMESPACE}) em 127.0.0.1:${MONGO_LOCAL_PORT}..."
+  kubectl -n "$NAMESPACE" port-forward svc/mazebank-cluster-svc "${MONGO_LOCAL_PORT}:27017" >/dev/null 2>&1 &
   echo $! >"$PID_FILE"
   sleep 1
 
@@ -73,14 +72,14 @@ cmd_start() {
 
   cat <<EOF
 
-Mongo local pronto: mongodb://127.0.0.1:${MONGO_LOCAL_PORT}
+Mongo local pronto: mongodb://mazebank-user:mazebank@127.0.0.1:${MONGO_LOCAL_PORT}/mazebank?authSource=admin
 App no Kind:        http://mazebank.local/mazebank/actuator/health
 
-No IntelliJ, use as variaveis de .env.local.example:
+No IntelliJ, use as variaveis:
 
   PORT=${APP_LOCAL_PORT}
   SPRING_PROFILES_ACTIVE=local
-  MONGO_CONNECTION_URL=mongodb://127.0.0.1:${MONGO_LOCAL_PORT}
+  MONGO_CONNECTION_URL=mongodb://mazebank-user:mazebank@127.0.0.1:${MONGO_LOCAL_PORT}/mazebank?authSource=admin
 
 Quando terminar:
   $0 stop

@@ -41,6 +41,14 @@ if errorlevel 1 (
   exit /b 1
 )
 
+call :log "Verificando helm"
+helm version --short >> "%LOG_FILE%" 2>&1
+if errorlevel 1 (
+  echo helm nao encontrado. Instale o helm (ex: winget install Helm.Helm) e tente novamente.
+  call :fail "helm nao encontrado"
+  exit /b 1
+)
+
 echo [4/10] Criando ou reutilizando cluster kind...
 call :log "Criando ou reutilizando cluster kind"
 
@@ -53,7 +61,7 @@ if defined CLUSTER_EXISTS (
   echo Cluster %CLUSTER_NAME% ja existe.
   call :log "Cluster %CLUSTER_NAME% ja existe"
 ) else (
-  kind create cluster --name %CLUSTER_NAME% --config k8s\local\kind-config.yaml >> "%LOG_FILE%" 2>&1
+  kind create cluster --name %CLUSTER_NAME% --config ..\helm\kind-config.yaml >> "%LOG_FILE%" 2>&1
   if errorlevel 1 (
     echo Falha ao criar o cluster kind.
     call :fail "Falha ao criar o cluster kind"
@@ -107,12 +115,12 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [9/10] Aplicando manifests Kubernetes...
-call :log "Aplicando manifests Kubernetes locais"
-kubectl apply -k k8s/overlays/local >> "%LOG_FILE%" 2>&1
+echo [9/10] Aplicando Helm Chart local...
+call :log "Aplicando Helm Chart local"
+helm upgrade --install mazebank ..\helm\mazebank -n mazebank --create-namespace -f ..\helm\mazebank\values-local.yaml >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
-  echo Falha ao aplicar os manifests Kubernetes.
-  call :fail "Falha ao aplicar os manifests Kubernetes"
+  echo Falha ao aplicar o Helm Chart.
+  call :fail "Falha ao aplicar o Helm Chart"
   exit /b 1
 )
 

@@ -1,9 +1,0 @@
-# Deploy (EKS): profile prod. Mongo Atlas vem do Secret mazebank-secrets.
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: mazebank-config
-  namespace: mazebank
-data:
-  SPRING_PROFILES_ACTIVE: prod
-  PORT: "8080"

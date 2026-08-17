@@ -1,0 +1,75 @@
+replicaCount: 2
+
+image:
+  repository: 650468121963.dkr.ecr.us-east-2.amazonaws.com/mzb/mazebank
+  pullPolicy: Always
+  tag: "latest"
+
+namespace: mazebank
+
+config:
+  springProfilesActive: prod
+  port: "8080"
+  mongoConnectionUrl: "" # Fornecida via Secret no prod (Atlas)
+
+secret:
+  create: true
+  mongoConnectionUrl: "" # Injetado pelo CI/CD
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: ""
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /mazebank/actuator/health
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+  hosts: []
+  path: /mazebank
+  pathType: Prefix
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 768Mi
+
+probes:
+  readiness:
+    path: /mazebank/actuator/health/readiness
+    initialDelaySeconds: 25
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  liveness:
+    path: /mazebank/actuator/health/liveness
+    initialDelaySeconds: 45
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+  startup:
+    enabled: false
+    path: /mazebank/actuator/health/liveness
+    periodSeconds: 5
+    failureThreshold: 30
+
+mongodb:
+  enabled: false # Em prod utiliza-se MongoDB Atlas externalizado
+  image: mongo:7
+  storage: 1Gi
+  port: 27017
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

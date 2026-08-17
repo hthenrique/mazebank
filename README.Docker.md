@@ -8,7 +8,7 @@ No Linux/WSL, use Kind para não ocupar `8080`/`27017` no host:
 
 URL: http://mazebank.local/mazebank/actuator/health  
 
-Debug no IntelliJ (Mongo do Kind, sem Atlas): `./scripts/k8s-debug-local.sh start` e cole `env.conf` na Run Configuration. Ver `k8s/local/README.md`.
+Debug no IntelliJ (Mongo do Kind, sem Atlas): `./scripts/k8s-debug-local.sh start` e cole `env.conf` na Run Configuration. Ver `helm/README.md`.
 
 ### Docker Compose (legado)
 

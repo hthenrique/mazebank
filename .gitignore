@@ -40,4 +40,4 @@ build/
 ### Env / secrets (nunca commitar valores reais) ###
 .env
 .env.local
-k8s/secret.yaml
+helm/mazebank/secret.yaml

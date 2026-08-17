@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Locale;
 
 @Slf4j
 @Service
@@ -46,20 +47,20 @@ public class ManagementServiceImpl implements ManagementService {
 
     @Override
     public BaseResponse createUser(CreateRequest createRequest) throws DatabaseException, ValidationException {
-         User user = findUserInCollection("_userEmail", createRequest.getUseremail());
+         User user = findUserInCollection("_userEmail", createRequest.getUseremail().trim().toLowerCase(Locale.ROOT));
          if (user != null){
              log.info(String.format("User already exists with uid %s", user.get_id()));
              throw new DatabaseException(ReturnCode.USER_ALREADY_EXISTS, "User already exists");
          }
 
-        if (!isValidEmail(createRequest.getUseremail())) {
+        if (!isValidEmail(createRequest.getUseremail().trim().toLowerCase(Locale.ROOT))) {
             throw new ValidationException(ReturnCode.INVALID_PARAMETERS, "Invalid email");
         }
 
         try {
             Document document = new Document();
             document.append("_userName", createRequest.getUsername());
-            document.append("_userEmail", createRequest.getUseremail());
+            document.append("_userEmail", createRequest.getUseremail().trim().toLowerCase(Locale.ROOT));
             document.append("_userPass", HashString.hash(createRequest.getUserpass()));
             document.append("_userCreatedAt", LocalDateTime.now().toString());
             document.append("_userBalance", BigDecimal.valueOf(100));
@@ -73,7 +74,7 @@ public class ManagementServiceImpl implements ManagementService {
 
     @Override
     public FetchUserResponse getUser(String userKey) throws DatabaseException {
-        User user = findUserInCollection("_userEmail", userKey);
+        User user = findUserInCollection("_userEmail", userKey.trim().toLowerCase(Locale.ROOT));
         verifyIfUserExists(user);
         log.info(String.format("User founded with uid %s", user.get_id()));
         return userMapper.userToFetchUser(user);
@@ -81,7 +82,7 @@ public class ManagementServiceImpl implements ManagementService {
 
     @Override
     public User findUserInDatabase(String userKey) throws DatabaseException {
-        return findUserInCollection("_userEmail", userKey);
+        return findUserInCollection("_userEmail", userKey.trim().toLowerCase(Locale.ROOT));
     }
 
     @Override

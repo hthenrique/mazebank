@@ -108,32 +108,34 @@ jobs:
           IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
         run: echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Install kubectl
+      - name: Install kubectl and Helm
         uses: azure/setup-kubectl@v4
+        with:
+          version: latest
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
         with:
           version: latest
 
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION"
 
-      - name: Create Kubernetes secret
-        env:
-          MONGO_CONNECTION_URL: ${{ secrets.MONGO_CONNECTION_URL }}
-        run: |
-          kubectl create namespace $K8S_NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
-          kubectl -n $K8S_NAMESPACE create secret generic mazebank-secrets \
-            --from-literal=MONGO_CONNECTION_URL="$MONGO_CONNECTION_URL" \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Deploy manifests
+      - name: Deploy Helm Chart
         env:
           IMAGE_URI: ${{ steps.build-image.outputs.image || steps.existing-image.outputs.image }}
+          MONGO_CONNECTION_URL: ${{ secrets.MONGO_CONNECTION_URL }}
         run: |
-          kubectl apply -f k8s/namespace.yaml
-          kubectl apply -f k8s/configmap.yaml
-          sed "s|123456789012.dkr.ecr.us-east-1.amazonaws.com/mazebank:latest|$IMAGE_URI|g" k8s/deployment.yaml | kubectl apply -f -
-          kubectl apply -f k8s/service.yaml
-          kubectl apply -f k8s/ingress.yaml
+          # Extrai imagem (repositório e tag)
+          REPO=$(echo "$IMAGE_URI" | cut -d':' -f1)
+          TAG=$(echo "$IMAGE_URI" | cut -d':' -f2)
+
+          helm upgrade --install mazebank ./helm/mazebank \
+            --namespace $K8S_NAMESPACE --create-namespace \
+            --set image.repository="$REPO" \
+            --set image.tag="$TAG" \
+            --set secret.create=true \
+            --set secret.mongoConnectionUrl="$MONGO_CONNECTION_URL"
 
       - name: Wait for rollout
         run: kubectl -n $K8S_NAMESPACE rollout status deployment/mazebank --timeout=180s

@@ -1,10 +1,9 @@
 @echo off
 setlocal
 
-REM Publica o Mongo do Kind em localhost para debug no IntelliJ/Maven.
-REM Mantem a app no cluster rodando. Variaveis: .env.local.example
+REM Publica o Mongo do Kind (namespace mongodb) em localhost para debug no IntelliJ/Maven.
 
-set "NAMESPACE=mazebank"
+set "NAMESPACE=mongodb"
 if "%MONGO_LOCAL_PORT%"=="" set "MONGO_LOCAL_PORT=27017"
 if "%APP_LOCAL_PORT%"=="" set "APP_LOCAL_PORT=8080"
 set "PID_FILE=%TEMP%\mazebank-mongo-port-forward.pid"
@@ -22,10 +21,10 @@ echo   start   Publica Mongo do Kind em localhost:%MONGO_LOCAL_PORT% ^(app no cl
 echo   stop    Encerra o port-forward
 echo   status  Mostra estado do port-forward e dos pods
 echo.
-echo IntelliJ: copie .env.local.example para a Run Configuration.
+echo IntelliJ: use as variaveis:
 echo   PORT=%APP_LOCAL_PORT%
 echo   SPRING_PROFILES_ACTIVE=local
-echo   MONGO_CONNECTION_URL=mongodb://127.0.0.1:%MONGO_LOCAL_PORT%
+echo   MONGO_CONNECTION_URL=mongodb://mazebank-user:mazebank@127.0.0.1:%MONGO_LOCAL_PORT%/mazebank?authSource=admin
 exit /b 1
 
 :start
@@ -43,8 +42,8 @@ if errorlevel 1 (
 
 call :stop_port_forward
 
-echo Publicando Mongo do Kind em 127.0.0.1:%MONGO_LOCAL_PORT%...
-start "" /b cmd /c "kubectl -n %NAMESPACE% port-forward svc/mongo %MONGO_LOCAL_PORT%:27017 >nul 2>&1"
+echo Publicando Mongo do Kind (%NAMESPACE%) em 127.0.0.1:%MONGO_LOCAL_PORT%...
+start "" /b cmd /c "kubectl -n %NAMESPACE% port-forward svc/mazebank-cluster-svc %MONGO_LOCAL_PORT%:27017 >nul 2>&1"
 timeout /t 1 /nobreak >nul
 
 for /f "tokens=2" %%p in ('tasklist /fi "imagename eq kubectl.exe" /fo list ^| findstr /i "PID:"') do (
@@ -54,13 +53,13 @@ for /f "tokens=2" %%p in ('tasklist /fi "imagename eq kubectl.exe" /fo list ^| f
 :after_pid
 
 echo.
-echo Mongo local pronto: mongodb://127.0.0.1:%MONGO_LOCAL_PORT%
+echo Mongo local pronto: mongodb://mazebank-user:mazebank@127.0.0.1:%MONGO_LOCAL_PORT%/mazebank?authSource=admin
 echo App no Kind:        http://mazebank.local/mazebank/actuator/health
 echo.
-echo No IntelliJ, use as variaveis de .env.local.example:
+echo No IntelliJ, use as variaveis:
 echo   PORT=%APP_LOCAL_PORT%
 echo   SPRING_PROFILES_ACTIVE=local
-echo   MONGO_CONNECTION_URL=mongodb://127.0.0.1:%MONGO_LOCAL_PORT%
+echo   MONGO_CONNECTION_URL=mongodb://mazebank-user:mazebank@127.0.0.1:%MONGO_LOCAL_PORT%/mazebank?authSource=admin
 echo.
 echo Quando terminar:
 echo   %~nx0 stop
@@ -87,7 +86,7 @@ exit /b 0
 :stop_port_forward
 if exist "%PID_FILE%" del /f /q "%PID_FILE%" >nul 2>&1
 for /f "tokens=2" %%p in ('tasklist /fi "imagename eq kubectl.exe" /fo list ^| findstr /i "PID:"') do (
-  wmic process where "ProcessId=%%p" get CommandLine 2>nul | findstr /i "port-forward svc/mongo" >nul
+  wmic process where "ProcessId=%%p" get CommandLine 2>nul | findstr /i "port-forward svc/mazebank-cluster-svc" >nul
   if not errorlevel 1 taskkill /PID %%p /F >nul 2>&1
 )
 goto :eof
