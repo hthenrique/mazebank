@@ -1,201 +1,58 @@
 @echo off
 setlocal
 
-cd /d "%~dp0"
+:: Launcher Windows do ambiente local em Kind.
+::
+:: A logica vive em scripts/deploy-local-k8s.sh e roda dentro do WSL: kind e helm
+:: normalmente nao estao instalados nativamente no Windows, e o Docker Desktop ja
+:: compartilha o daemon com a distro. Este arquivo so resolve o caminho, cuida do
+:: hosts do Windows e repassa os argumentos.
+::
+:: Uso: deploy-local-k8s.bat [deploy [local^|real] [--debug] ^| debug start^|stop^|status ^| help]
 
-set "CLUSTER_NAME=mazebank"
 set "HOSTS_FILE=%SystemRoot%\System32\drivers\etc\hosts"
-set "LOG_DIR=%~dp0logs"
-set "LOG_FILE=%LOG_DIR%\local-k8s-deploy.log"
+set "APP_HOST=mazebank.local"
 
-if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
-break > "%LOG_FILE%"
+where.exe wsl >nul 2>&1
+if errorlevel 1 goto no_wsl
 
-call :log "Inicio do deploy local Kubernetes"
-call :log "Cluster: %CLUSTER_NAME%"
-
-echo [1/10] Verificando Docker...
-call :log "Verificando Docker"
-docker info >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-  echo Docker nao esta em execucao. Abra o Docker Desktop e tente novamente.
-  call :fail "Docker nao esta em execucao"
+set "WSL_SCRIPT="
+for /f "usebackq delims=" %%p in (`wsl wslpath -a "%~dp0deploy-local-k8s.sh"`) do set "WSL_SCRIPT=%%p"
+if not defined WSL_SCRIPT (
+  echo Erro: nao foi possivel resolver "%~dp0deploy-local-k8s.sh" dentro do WSL.
   exit /b 1
 )
 
-echo [2/10] Verificando kind...
-call :log "Verificando kind"
-kind version >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-  echo kind nao encontrado. Instale o kind e tente novamente.
-  call :fail "kind nao encontrado"
-  exit /b 1
-)
+:: O /etc/hosts do WSL nao resolve nomes para o navegador do Windows, entao a
+:: entrada de hosts e responsabilidade deste wrapper (so faz sentido no deploy).
+if /i not "%~1"=="debug" if /i not "%~1"=="help" call :update_hosts
 
-echo [3/10] Verificando kubectl...
-call :log "Verificando kubectl"
-kubectl version --client >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-  echo kubectl nao encontrado. Instale o kubectl e tente novamente.
-  call :fail "kubectl nao encontrado"
-  exit /b 1
-)
+wsl bash -c "'%WSL_SCRIPT%' %*"
+exit /b %errorlevel%
 
-call :log "Verificando helm"
-helm version --short >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-  echo helm nao encontrado. Instale o helm (ex: winget install Helm.Helm) e tente novamente.
-  call :fail "helm nao encontrado"
-  exit /b 1
-)
-
-echo [4/10] Criando ou reutilizando cluster kind...
-call :log "Criando ou reutilizando cluster kind"
-
-set "CLUSTER_EXISTS="
-for /f %%i in ('kind get clusters 2^>nul') do (
-  if /i "%%i"=="%CLUSTER_NAME%" set "CLUSTER_EXISTS=1"
-)
-
-if defined CLUSTER_EXISTS (
-  echo Cluster %CLUSTER_NAME% ja existe.
-  call :log "Cluster %CLUSTER_NAME% ja existe"
-) else (
-  kind create cluster --name %CLUSTER_NAME% --config ..\helm\kind-config.yaml >> "%LOG_FILE%" 2>&1
-  if errorlevel 1 (
-    echo Falha ao criar o cluster kind.
-    call :fail "Falha ao criar o cluster kind"
-    exit /b 1
-  )
-)
-
-kubectl config use-context kind-%CLUSTER_NAME% >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-  echo Falha ao selecionar o contexto do cluster.
-  call :fail "Falha ao selecionar o contexto do cluster"
-  exit /b 1
-)
-
-echo [5/10] Instalando ingress-nginx...
-call :log "Instalando ingress-nginx"
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-  echo Falha ao instalar o ingress-nginx.
-  call :fail "Falha ao instalar o ingress-nginx"
-  exit /b 1
-)
-
-echo [6/10] Aguardando ingress-nginx ficar pronto...
-call :log "Aguardando ingress-nginx ficar pronto"
-kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=180s >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-  echo O ingress-nginx nao ficou pronto no tempo esperado.
-  call :log "Capturando diagnostico do ingress-nginx"
-  kubectl get pods -n ingress-nginx -o wide >> "%LOG_FILE%" 2>&1
-  kubectl describe pods -n ingress-nginx >> "%LOG_FILE%" 2>&1
-  call :fail "Ingress-nginx nao ficou pronto"
-  exit /b 1
-)
-
-echo [7/10] Gerando imagem Docker local...
-call :log "Gerando imagem Docker local"
-docker build --no-cache -t mazebank:local . >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-  echo Falha ao gerar a imagem Docker.
-  call :fail "Falha ao gerar a imagem Docker"
-  exit /b 1
-)
-
-echo [8/10] Carregando imagem no cluster kind...
-call :log "Carregando imagem no cluster kind"
-kind load docker-image mazebank:local --name %CLUSTER_NAME% >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-  echo Falha ao carregar a imagem no cluster kind.
-  call :fail "Falha ao carregar a imagem no cluster kind"
-  exit /b 1
-)
-
-echo [9/10] Aplicando Helm Chart local...
-call :log "Aplicando Helm Chart local"
-helm upgrade --install mazebank ..\helm\mazebank -n mazebank --create-namespace -f ..\helm\mazebank\values-local.yaml >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-  echo Falha ao aplicar o Helm Chart.
-  call :fail "Falha ao aplicar o Helm Chart"
-  exit /b 1
-)
-
-call :log "Forcando rollout da aplicacao"
-kubectl rollout restart deployment/mazebank -n mazebank >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-  echo Falha ao reiniciar o deployment da aplicacao.
-  call :fail "Falha ao reiniciar o deployment da aplicacao"
-  exit /b 1
-)
-
-echo [10/10] Aguardando a aplicacao ficar pronta...
-call :log "Aguardando rollout do Mongo"
-kubectl rollout status deployment/mongo -n mazebank --timeout=180s >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-  echo Mongo nao ficou pronto no tempo esperado.
-  call :log "Capturando diagnostico do Mongo"
-  kubectl get pods -n mazebank -o wide >> "%LOG_FILE%" 2>&1
-  kubectl describe deployment mongo -n mazebank >> "%LOG_FILE%" 2>&1
-  kubectl describe pods -n mazebank >> "%LOG_FILE%" 2>&1
-  kubectl logs -n mazebank deploy/mongo >> "%LOG_FILE%" 2>&1
-  call :fail "Mongo nao ficou pronto"
-  exit /b 1
-)
-call :log "Aguardando rollout da aplicacao"
-kubectl rollout status deployment/mazebank -n mazebank --timeout=180s >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-  echo Aplicacao nao ficou pronta no tempo esperado.
-  call :log "Capturando diagnostico da aplicacao"
-  kubectl get pods -n mazebank -o wide >> "%LOG_FILE%" 2>&1
-  kubectl describe deployment mazebank -n mazebank >> "%LOG_FILE%" 2>&1
-  kubectl describe pods -n mazebank >> "%LOG_FILE%" 2>&1
-  kubectl logs -n mazebank deploy/mazebank >> "%LOG_FILE%" 2>&1
-  call :fail "Aplicacao nao ficou pronta"
-  exit /b 1
-)
-
-echo Atualizando hosts local para mazebank.local...
-call :log "Atualizando arquivo hosts"
+:update_hosts
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$hosts = '%HOSTS_FILE%';" ^
-  "$entry = '127.0.0.1 mazebank.local';" ^
+  "$entry = '127.0.0.1 %APP_HOST%';" ^
   "$content = Get-Content -Path $hosts -ErrorAction Stop;" ^
-  "if ($content -notcontains $entry) { Add-Content -Path $hosts -Value $entry -ErrorAction Stop }" >> "%LOG_FILE%" 2>&1
+  "if ($content -notcontains $entry) { Add-Content -Path $hosts -Value $entry -ErrorAction Stop }" >nul 2>&1
 if errorlevel 1 (
-  echo Nao foi possivel atualizar o arquivo hosts automaticamente.
-  echo Adicione manualmente esta linha em %HOSTS_FILE%:
-  echo 127.0.0.1 mazebank.local
-  call :log "Falha ao atualizar o arquivo hosts automaticamente"
+  echo [AVISO] Nao foi possivel atualizar o arquivo hosts automaticamente.
+  echo         Rode este script como Administrador, ou adicione manualmente em
+  echo         %HOSTS_FILE% a linha:
+  echo         127.0.0.1 %APP_HOST%
+  echo.
 )
-
-echo.
-echo Cluster local pronto.
-echo URL da aplicacao: http://mazebank.local/mazebank/actuator/health
-echo Log de execucao: %LOG_FILE%
-call :log "Deploy concluido com sucesso"
-echo.
-echo Comandos uteis:
-echo   kubectl get pods -n mazebank
-echo   kubectl get ingress -n mazebank
-echo   kubectl logs -n mazebank deploy/mazebank
-echo   scripts\k8s-debug-local.bat start   # Mongo no host + IntelliJ (.env.local.example)
-echo   kind delete cluster --name %CLUSTER_NAME%
-
-endlocal
-exit /b 0
-
-:log
-echo [%date% %time%] %~1>> "%LOG_FILE%"
 goto :eof
 
-:fail
+:no_wsl
+echo Erro: WSL nao encontrado.
 echo.
-echo Erro: %~1
-echo Analise o arquivo de log em:
-echo %LOG_FILE%
-call :log "ERRO: %~1"
-goto :eof
+echo Este wrapper delega a execucao para scripts/deploy-local-k8s.sh dentro do WSL,
+echo porque kind e helm normalmente nao estao instalados nativamente no Windows.
+echo.
+echo Opcoes:
+echo   1^) Instale o WSL:  wsl --install
+echo   2^) Ou rode ./scripts/deploy-local-k8s.sh direto em um shell Linux/Git Bash
+echo      com docker, kind, kubectl e helm no PATH.
+exit /b 1

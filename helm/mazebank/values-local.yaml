@@ -8,7 +8,7 @@ image:
 config:
   springProfilesActive: local
   port: "8080"
-  mongoConnectionUrl: mongodb://mazebank-user:mazebank@mazebank-cluster-svc.mongodb:27017/mazebank?authSource=admin
+  mongoConnectionUrl: mongodb://mazebank-user:mazebank@mazebank-cluster-svc.mongodb.svc.cluster.local:27017/mazebank?authSource=admin
 
 secret:
   create: false
