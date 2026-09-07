@@ -12,6 +12,7 @@ import org.bson.types.ObjectId;
 @BsonDiscriminator
 public class User {
     private String _id;
+    private String _uid;
     private String _userName;
     private String _userEmail;
     private String _userPass;
@@ -19,7 +20,8 @@ public class User {
     private Decimal128 _userBalance;
 
     public User(Document document){
-        this._id = document.get("_id", ObjectId.class).toString();
+        this._id = document.get("_id", ObjectId.class) != null ? document.get("_id", ObjectId.class).toString() : null;
+        this._uid = document.getString("_uid");
         this._userName = document.getString("_userName");
         this._userEmail = document.getString("_userEmail");
         this._userPass = document.getString("_userPass");

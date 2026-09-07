@@ -3,9 +3,21 @@ set -euo pipefail
 
 export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
 
+# Se o Docker Linux nativo nao estiver respondendo, mas docker.exe (Windows) estiver disponivel via WSL,
+# configura automaticamente o wrapper para permitir a integracao transparente com o Docker Desktop.
+if ! docker info >/dev/null 2>&1 && command -v docker.exe >/dev/null 2>&1; then
+  mkdir -p "$HOME/.local/bin"
+  cat <<'EOF_DOCKER' > "$HOME/.local/bin/docker"
+#!/usr/bin/env bash
+exec docker.exe "$@"
+EOF_DOCKER
+  chmod +x "$HOME/.local/bin/docker"
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+
 # Ponto de entrada unico do ambiente local em Kind.
 #   deploy  Sobe/reutiliza o cluster, gera a imagem, aplica o chart e injeta o ConfigMap.
-#   debug   Publica o Mongo do cluster em localhost para rodar a app no IntelliJ/Maven.
+#   debug   Publica o Mongo e PingDirectory do cluster em localhost para rodar a app no IntelliJ/Maven.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -25,8 +37,21 @@ MONGO_LOCAL_PORT="${MONGO_LOCAL_PORT:-27017}"
 APP_LOCAL_PORT="${APP_LOCAL_PORT:-8080}"
 MONGO_URL="mongodb://mazebank-user:mazebank@127.0.0.1:${MONGO_LOCAL_PORT}/mazebank?authSource=admin"
 
+# Configuracoes PingDirectory (LDAP)
+LDAP_NAMESPACE="pingidentity"
+LDAP_SVC="pingdirectory-pingdirectory"
+LDAP_PORT="389"
+LDAP_LOCAL_PORT="${LDAP_LOCAL_PORT:-389}"
+LDAP_URL="ldap://127.0.0.1:${LDAP_LOCAL_PORT}"
+LDAP_BASE="dc=example,dc=com"
+LDAP_USER_DN="cn=administrator"
+LDAP_PASSWORD="2FederateM0re"
+
 PID_FILE="${TMPDIR:-/tmp}/mazebank-mongo-port-forward.pid"
 PF_LOG="${TMPDIR:-/tmp}/mazebank-mongo-port-forward.log"
+
+LDAP_PID_FILE="${TMPDIR:-/tmp}/mazebank-ldap-port-forward.pid"
+LDAP_PF_LOG="${TMPDIR:-/tmp}/mazebank-ldap-port-forward.log"
 
 LOG_DIR="$ROOT_DIR/logs"
 LOG_FILE="$LOG_DIR/local-k8s-deploy.log"
@@ -37,7 +62,7 @@ Uso: $0 [comando] [opcoes]
 
 Comandos:
   deploy [local|real] [--debug]   Deploy completo no Kind (padrao)
-  debug <start|stop|status>       Port-forward do Mongo (${MONGO_NAMESPACE}) para localhost
+  debug <start|stop|status>       Port-forward do Mongo (${MONGO_NAMESPACE}) e PingDirectory (${LDAP_NAMESPACE}) para localhost
   help                            Esta ajuda
 
 Compatibilidade (invocacao antiga):
@@ -47,6 +72,7 @@ Compatibilidade (invocacao antiga):
 
 Variaveis opcionais:
   MONGO_LOCAL_PORT  (default: 27017)
+  LDAP_LOCAL_PORT   (default: 389)
   APP_LOCAL_PORT    (default: 8080) - so informativo
 
 No IntelliJ, apos 'debug start', use as variaveis:
@@ -54,6 +80,10 @@ No IntelliJ, apos 'debug start', use as variaveis:
   PORT=${APP_LOCAL_PORT}
   SPRING_PROFILES_ACTIVE=local
   MONGO_CONNECTION_URL=${MONGO_URL}
+  LDAP_URL=${LDAP_URL}
+  LDAP_BASE=${LDAP_BASE}
+  LDAP_USER_DN=${LDAP_USER_DN}
+  LDAP_PASSWORD=${LDAP_PASSWORD}
 EOF
 }
 
@@ -96,7 +126,7 @@ update_hosts() {
   local hosts_file="/etc/hosts"
   local entry="127.0.0.1 ${APP_HOST}"
 
-  if grep -qE '^[[:space:]]*127\.0\.0\.1[[:space:]]+mazebank\.local([[:space:]]|$)' "$hosts_file" 2>/dev/null; then
+  if grep -qE '^[[:space:]]*127\.0\.0\.1[[:space:]]+mazebank\\.local([[:space:]]|$)' "$hosts_file" 2>/dev/null; then
     return 0
   fi
 
@@ -107,7 +137,7 @@ update_hosts() {
 
   if command -v sudo >/dev/null 2>&1; then
     echo "$entry" | sudo -n tee -a "$hosts_file" >/dev/null 2>&1 || true
-    if grep -qE '^[[:space:]]*127\.0\.0\.1[[:space:]]+mazebank\.local([[:space:]]|$)' "$hosts_file" 2>/dev/null; then
+    if grep -qE '^[[:space:]]*127\.0\.0\.1[[:space:]]+mazebank\\.local([[:space:]]|$)' "$hosts_file" 2>/dev/null; then
       return 0
     fi
   fi
@@ -274,7 +304,7 @@ cmd_deploy() {
   echo "  kubectl get pods -n $APP_NAMESPACE"
   echo "  kubectl get ingress -n $APP_NAMESPACE"
   echo "  kubectl logs -n $APP_NAMESPACE deploy/$APP_RELEASE"
-  echo "  $0 debug start   # Mongo do cluster em localhost para o IntelliJ"
+  echo "  $0 debug start   # Mongo e PingDirectory do cluster em localhost para o IntelliJ"
   echo "  kind delete cluster --name $cluster_name"
 
   if [ "$with_debug" = "1" ]; then
@@ -288,6 +318,7 @@ cmd_deploy() {
 # ---------------------------------------------------------------------------
 
 stop_port_forward() {
+  # Mongo
   if [[ -f "$PID_FILE" ]]; then
     local pid
     pid="$(cat "$PID_FILE" 2>/dev/null || true)"
@@ -298,45 +329,79 @@ stop_port_forward() {
     rm -f "$PID_FILE"
   fi
   pkill -f "port-forward .*svc/${MONGO_SVC} ${MONGO_LOCAL_PORT}:${MONGO_PORT}" 2>/dev/null || true
+
+  # PingDirectory (LDAP)
+  if [[ -f "$LDAP_PID_FILE" ]]; then
+    local ldap_pid
+    ldap_pid="$(cat "$LDAP_PID_FILE" 2>/dev/null || true)"
+    if [[ -n "${ldap_pid}" ]] && kill -0 "$ldap_pid" 2>/dev/null; then
+      kill "$ldap_pid" 2>/dev/null || true
+      wait "$ldap_pid" 2>/dev/null || true
+    fi
+    rm -f "$LDAP_PID_FILE"
+  fi
+  pkill -f "port-forward .*svc/${LDAP_SVC} ${LDAP_LOCAL_PORT}:${LDAP_PORT}" 2>/dev/null || true
 }
 
 debug_start() {
   require_kubectl
 
-  if ! kubectl get ns "$MONGO_NAMESPACE" >/dev/null 2>&1; then
-    echo "Namespace ${MONGO_NAMESPACE} nao encontrado. Rode '$0 deploy' antes."
-    exit 1
-  fi
-
   stop_port_forward
 
-  echo "Publicando Mongo do Kind (${MONGO_NAMESPACE}) em 127.0.0.1:${MONGO_LOCAL_PORT}..."
-  # nohup + disown: o port-forward precisa sobreviver ao fim do shell, inclusive
-  # quando o script e chamado pelo wrapper .bat atraves do WSL.
-  nohup kubectl -n "$MONGO_NAMESPACE" port-forward --address 127.0.0.1 \
-    "svc/${MONGO_SVC}" "${MONGO_LOCAL_PORT}:${MONGO_PORT}" >"$PF_LOG" 2>&1 &
-  echo $! >"$PID_FILE"
-  disown || true
-  sleep 1
+  # 1. Port forward MongoDB
+  if kubectl get ns "$MONGO_NAMESPACE" >/dev/null 2>&1; then
+    echo "Publicando Mongo do Kind (${MONGO_NAMESPACE}) em 127.0.0.1:${MONGO_LOCAL_PORT}..."
+    nohup kubectl -n "$MONGO_NAMESPACE" port-forward --address 127.0.0.1 \
+      "svc/${MONGO_SVC}" "${MONGO_LOCAL_PORT}:${MONGO_PORT}" >"$PF_LOG" 2>&1 &
+    echo $! >"$PID_FILE"
+    disown || true
+    sleep 1
 
-  if ! kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-    rm -f "$PID_FILE"
-    echo "Falha ao iniciar port-forward do Mongo. Porta ${MONGO_LOCAL_PORT} pode estar em uso."
-    echo "Saida do kubectl:"
-    cat "$PF_LOG" 2>/dev/null || true
-    exit 1
+    if ! kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+      rm -f "$PID_FILE"
+      echo "Falha ao iniciar port-forward do Mongo. Porta ${MONGO_LOCAL_PORT} pode estar em uso."
+      echo "Saida do kubectl:"
+      cat "$PF_LOG" 2>/dev/null || true
+    fi
+  else
+    echo "Aviso: Namespace ${MONGO_NAMESPACE} nao encontrado. Pulando port-forward do Mongo."
+  fi
+
+  # 2. Port forward PingDirectory
+  if kubectl get ns "$LDAP_NAMESPACE" >/dev/null 2>&1; then
+    echo "Publicando PingDirectory LDAP (${LDAP_NAMESPACE}) em 127.0.0.1:${LDAP_LOCAL_PORT}..."
+    nohup kubectl -n "$LDAP_NAMESPACE" port-forward --address 127.0.0.1 \
+      "svc/${LDAP_SVC}" "${LDAP_LOCAL_PORT}:${LDAP_PORT}" >"$LDAP_PF_LOG" 2>&1 &
+    echo $! >"$LDAP_PID_FILE"
+    disown || true
+    sleep 1
+
+    if ! kill -0 "$(cat "$LDAP_PID_FILE")" 2>/dev/null; then
+      rm -f "$LDAP_PID_FILE"
+      echo "Falha ao iniciar port-forward do PingDirectory. Porta ${LDAP_LOCAL_PORT} pode estar em uso."
+      echo "Saida do kubectl:"
+      cat "$LDAP_PF_LOG" 2>/dev/null || true
+    fi
+  else
+    echo "Aviso: Namespace ${LDAP_NAMESPACE} nao encontrado. Pulando port-forward do PingDirectory."
   fi
 
   cat <<EOF
 
-Mongo local pronto: ${MONGO_URL}
-App no Kind:        ${HEALTH_URL}
+Servicos locais prontos para debug:
+  Mongo:          ${MONGO_URL}
+  PingDirectory:  ${LDAP_URL} (Base: ${LDAP_BASE})
+  App no Kind:    ${HEALTH_URL}
 
 No IntelliJ, use as variaveis:
 
   PORT=${APP_LOCAL_PORT}
   SPRING_PROFILES_ACTIVE=local
   MONGO_CONNECTION_URL=${MONGO_URL}
+  LDAP_URL=${LDAP_URL}
+  LDAP_BASE=${LDAP_BASE}
+  LDAP_USER_DN=${LDAP_USER_DN}
+  LDAP_PASSWORD=${LDAP_PASSWORD}
 
 Quando terminar:
   $0 debug stop
@@ -344,22 +409,32 @@ EOF
 }
 
 debug_stop() {
-  echo "Encerrando port-forward do Mongo..."
+  echo "Encerrando port-forward do Mongo e PingDirectory..."
   stop_port_forward
   echo "Port-forward encerrado. App no Kind permanece: ${HEALTH_URL}"
 }
 
 debug_status() {
   require_kubectl
-  echo "=== port-forward ==="
+  echo "=== port-forward Mongo ==="
   if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
     echo "ativo (pid=$(cat "$PID_FILE")) -> 127.0.0.1:${MONGO_LOCAL_PORT}"
   else
     echo "inativo"
   fi
   echo
+  echo "=== port-forward PingDirectory (LDAP) ==="
+  if [[ -f "$LDAP_PID_FILE" ]] && kill -0 "$(cat "$LDAP_PID_FILE")" 2>/dev/null; then
+    echo "ativo (pid=$(cat "$LDAP_PID_FILE")) -> 127.0.0.1:${LDAP_LOCAL_PORT}"
+  else
+    echo "inativo"
+  fi
+  echo
   echo "=== pods (${MONGO_NAMESPACE}) ==="
   kubectl get pods -n "$MONGO_NAMESPACE" -o wide 2>/dev/null || echo "namespace ausente"
+  echo
+  echo "=== pods (${LDAP_NAMESPACE}) ==="
+  kubectl get pods -n "$LDAP_NAMESPACE" -o wide 2>/dev/null || echo "namespace ausente"
 }
 
 # ---------------------------------------------------------------------------

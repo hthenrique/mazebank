@@ -9,6 +9,10 @@ config:
   springProfilesActive: local
   port: "8080"
   mongoConnectionUrl: mongodb://mazebank-user:mazebank@mazebank-cluster-svc.mongodb.svc.cluster.local:27017/mazebank?authSource=admin
+  ldapUrl: ldap://pingdirectory-pingdirectory.pingidentity.svc.cluster.local:389
+  ldapBase: dc=example,dc=com
+  ldapUserDn: cn=administrator
+  ldapPassword: 2FederateM0re
 
 secret:
   create: false

@@ -9,3 +9,15 @@ data:
   {{- if .Values.config.mongoConnectionUrl }}
   MONGO_CONNECTION_URL: {{ .Values.config.mongoConnectionUrl | quote }}
   {{- end }}
+  {{- if .Values.config.ldapUrl }}
+  LDAP_URL: {{ .Values.config.ldapUrl | quote }}
+  {{- end }}
+  {{- if .Values.config.ldapBase }}
+  LDAP_BASE: {{ .Values.config.ldapBase | quote }}
+  {{- end }}
+  {{- if .Values.config.ldapUserDn }}
+  LDAP_USER_DN: {{ .Values.config.ldapUserDn | quote }}
+  {{- end }}
+  {{- if .Values.config.ldapPassword }}
+  LDAP_PASSWORD: {{ .Values.config.ldapPassword | quote }}
+  {{- end }}

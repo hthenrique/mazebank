@@ -20,3 +20,9 @@ management:
 mongo:
   connection:
     url: ${MONGO_CONNECTION_URL:mongodb://127.0.0.1:27017}
+
+ldap:
+  urls: ${LDAP_URL:ldap://127.0.0.1:389}
+  base: ${LDAP_BASE:dc=example,dc=com}
+  username: ${LDAP_USER_DN:cn=administrator}
+  password: ${LDAP_PASSWORD:2FederateM0re}

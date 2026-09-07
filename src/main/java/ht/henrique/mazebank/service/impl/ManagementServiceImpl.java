@@ -2,7 +2,6 @@ package ht.henrique.mazebank.service.impl;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
 import ht.henrique.mazebank.exception.DatabaseException;
 import ht.henrique.mazebank.exception.ValidationException;
@@ -14,8 +13,8 @@ import ht.henrique.mazebank.model.deposit.DepositRequest;
 import ht.henrique.mazebank.model.fetch.FetchUserResponse;
 import ht.henrique.mazebank.model.mapper.UserMapper;
 import ht.henrique.mazebank.model.type.ReturnCode;
+import ht.henrique.mazebank.service.LdapService;
 import ht.henrique.mazebank.service.ManagementService;
-import ht.henrique.mazebank.util.HashString;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.bson.types.Decimal128;
@@ -26,7 +25,9 @@ import org.springframework.stereotype.Service;
 import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Locale;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -36,6 +37,9 @@ public class ManagementServiceImpl implements ManagementService {
     private UserMapper userMapper;
     @Autowired
     private MongoClient mongoClient;
+    @Autowired
+    private LdapService ldapService;
+
     private MongoDatabase mongoDatabase;
     private MongoCollection<Document> collection;
 
@@ -47,25 +51,33 @@ public class ManagementServiceImpl implements ManagementService {
 
     @Override
     public BaseResponse createUser(CreateRequest createRequest) throws DatabaseException, ValidationException {
-         User user = findUserInCollection("_userEmail", createRequest.getUseremail().trim().toLowerCase(Locale.ROOT));
-         if (user != null){
-             log.info(String.format("User already exists with uid %s", user.get_id()));
-             throw new DatabaseException(ReturnCode.USER_ALREADY_EXISTS, "User already exists");
-         }
+        User user = findUserInCollection("_userEmail", createRequest.getUseremail().trim().toLowerCase(Locale.ROOT));
+        if (user != null){
+            log.info(String.format("User already exists with uid %s", user.get_id()));
+            throw new DatabaseException(ReturnCode.USER_ALREADY_EXISTS, "User already exists");
+        }
 
         if (!isValidEmail(createRequest.getUseremail())) {
             throw new ValidationException(ReturnCode.INVALID_PARAMETERS, "Invalid email");
         }
 
+        // Gera UUID randômico para o UID do LDAP e identificador do usuário
+        String randomUid = UUID.randomUUID().toString();
+
+        // Criar usuário no LDAP PingDirectory com o UID randômico
+        ldapService.createLdapUser(randomUid, createRequest.getUsername(), createRequest.getUseremail(), createRequest.getUserpass());
+
+        // Salvar usuário no MongoDB (sem armazenar senha)
         try {
             Document document = new Document();
+            document.append("_uid", randomUid);
             document.append("_userName", createRequest.getUsername());
             document.append("_userEmail", createRequest.getUseremail());
-            document.append("_userPass", HashString.hash(createRequest.getUserpass()));
             document.append("_userCreatedAt", LocalDateTime.now().toString());
             document.append("_userBalance", BigDecimal.valueOf(100));
             collection.insertOne(document);
-        }catch (Exception exception){
+        } catch (Exception exception){
+            log.error("Erro ao salvar no Mongo: {}", exception.getMessage());
             throw new DatabaseException(ReturnCode.INTERNAL_SERVER_ERROR, "Database unavailable");
         }
 
@@ -74,7 +86,7 @@ public class ManagementServiceImpl implements ManagementService {
 
     @Override
     public FetchUserResponse getUser(String userKey) throws DatabaseException {
-        User user = findUserInCollection("_userEmail", userKey.trim().toLowerCase(Locale.ROOT));
+        User user = findUserInDatabase(userKey);
         verifyIfUserExists(user);
         log.info(String.format("User founded with uid %s", user.get_id()));
         return userMapper.userToFetchUser(user);
@@ -82,13 +94,39 @@ public class ManagementServiceImpl implements ManagementService {
 
     @Override
     public User findUserInDatabase(String userKey) throws DatabaseException {
-        return findUserInCollection("_userEmail", userKey.trim().toLowerCase(Locale.ROOT));
+        if (userKey == null) {
+            return null;
+        }
+        String cleanKey = userKey.trim();
+        log.info(String.format("Searching user with key: %s", cleanKey));
+        try {
+            Document filter = new Document("$or", Arrays.asList(
+                    new Document("_uid", cleanKey),
+                    new Document("_userEmail", cleanKey.toLowerCase(Locale.ROOT)),
+                    new Document("_userName", cleanKey)
+            ));
+            Document document = collection.find(filter).first();
+            return document != null ? new User(document) : null;
+        } catch (Exception e) {
+            log.error(e.getLocalizedMessage());
+            throw new DatabaseException(ReturnCode.INTERNAL_SERVER_ERROR, "Internal error in database");
+        }
     }
 
     @Override
     public BaseResponse depositBalance(String uid, DepositRequest depositRequest) throws DatabaseException, ValidationException {
-        ObjectId objectId = new ObjectId(uid);
-        User user = findUserInCollection("_id", objectId);
+        User user = null;
+        ObjectId objectId = null;
+        if (ObjectId.isValid(uid)) {
+            objectId = new ObjectId(uid);
+            user = findUserInCollection("_id", objectId);
+        }
+        if (user == null) {
+            user = findUserInCollection("_uid", uid);
+            if (user != null && user.get_id() != null) {
+                objectId = new ObjectId(user.get_id());
+            }
+        }
         verifyIfUserExists(user);
         if (depositRequest.getValue() == null || depositRequest.getValue().equals("")) {
             throw new ValidationException(ReturnCode.INVALID_PARAMETERS, "Balance is empty");

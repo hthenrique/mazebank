@@ -8,10 +8,10 @@ import ht.henrique.mazebank.model.authenticate.AuthenticateResponse;
 import ht.henrique.mazebank.model.database.User;
 import ht.henrique.mazebank.model.type.ReturnCode;
 import ht.henrique.mazebank.service.AuthenticateService;
-import ht.henrique.mazebank.util.HashString;
+import ht.henrique.mazebank.service.LdapService;
+import ht.henrique.mazebank.service.ManagementService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -19,7 +19,10 @@ import org.springframework.stereotype.Service;
 public class AuthenticationServiceImpl implements AuthenticateService {
 
     @Autowired
-    private ManagementServiceImpl managementService;
+    private ManagementService managementService;
+
+    @Autowired
+    private LdapService ldapService;
 
     @Override
     public BaseResponse authenticate(AuthenticateRequest authenticateRequest) throws DatabaseException, UtilsException {
@@ -30,7 +33,16 @@ public class AuthenticationServiceImpl implements AuthenticateService {
             throw new DatabaseException(ReturnCode.NOT_FOUND, "User not found");
         }
 
-        if (!HashString.hash(authenticateRequest.getUserpass()).equals(user.get_userPass())){
+        boolean authenticated = false;
+
+        // Valida no LDAP PingDirectory (por UID randômico, username/cn ou e-mail/mail)
+        if (!authenticated) {
+            authenticated = (user.get_uid() != null && ldapService.authenticate(user.get_uid(), authenticateRequest.getUserpass()))
+                    || (user.get_userName() != null && ldapService.authenticate(user.get_userName(), authenticateRequest.getUserpass()))
+                    || (user.get_userEmail() != null && ldapService.authenticate(user.get_userEmail(), authenticateRequest.getUserpass()));
+        }
+
+        if (!authenticated) {
             log.info("Invalid credentials");
             throw new DatabaseException(ReturnCode.INVALID_PARAMETERS, "Invalid credentials");
         }
