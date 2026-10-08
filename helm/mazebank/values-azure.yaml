@@ -1,0 +1,56 @@
+replicaCount: 1
+
+image:
+  repository: mazebankacr.azurecr.io/mazebank
+  pullPolicy: Always
+  tag: "1.5.0"
+
+namespace: mazebank
+
+config:
+  springProfilesActive: prod
+  port: "8080"
+  mongoConnectionUrl: "" # Injetado via ConfigMap no deploy a partir de ENV/real/env.conf
+
+secret:
+  create: false
+
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 8080
+  annotations:
+    service.beta.kubernetes.io/azure-dns-label-name: "mazebank-app"
+
+ingress:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 768Mi
+
+probes:
+  readiness:
+    path: /mazebank/actuator/health/readiness
+    initialDelaySeconds: 25
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  liveness:
+    path: /mazebank/actuator/health/liveness
+    initialDelaySeconds: 45
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+  startup:
+    enabled: true
+    path: /mazebank/actuator/health/liveness
+    periodSeconds: 5
+    failureThreshold: 30
+
+mongodb:
+  enabled: false # Utiliza MongoDB Atlas externalizado configurado em env.conf
