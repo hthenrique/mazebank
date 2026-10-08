@@ -16,14 +16,25 @@ secret:
   create: false
 
 service:
-  type: LoadBalancer
-  port: 80
+  type: ClusterIP      # Mudou de LoadBalancer para ClusterIP
+  port: 8080
   targetPort: 8080
-  annotations:
-    service.beta.kubernetes.io/azure-dns-label-name: "mazebank-app"
 
 ingress:
-  enabled: false
+  enabled: true        # Mudou de false para true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: mazebank-app.brazilsouth.cloudapp.azure.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: mazebank-tls-secret
+      hosts:
+        - mazebank-app.brazilsouth.cloudapp.azure.com
 
 resources:
   requests:
