@@ -16,21 +16,24 @@ secret:
   create: false
 
 service:
-  type: ClusterIP      # Mudou de LoadBalancer para ClusterIP
+  type: ClusterIP
   port: 8080
   targetPort: 8080
 
 ingress:
-  enabled: true        # Mudou de false para true
+  enabled: true
   className: nginx
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    alb.ingress.kubernetes.io/scheme: ""
+    alb.ingress.kubernetes.io/target-type: ""
+    alb.ingress.kubernetes.io/healthcheck-path: ""
+    alb.ingress.kubernetes.io/listen-ports: ""
   hosts:
-    - host: mazebank-app.brazilsouth.cloudapp.azure.com
-      paths:
-        - path: /
-          pathType: Prefix
+    - mazebank-app.brazilsouth.cloudapp.azure.com
+  path: /
+  pathType: Prefix
   tls:
     - secretName: mazebank-tls-secret
       hosts:
