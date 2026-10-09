@@ -290,8 +290,7 @@ cmd_deploy() {
     --create-namespace \
     -f "$values_file" \
     --set image.repository="$image_repo" \
-    --set image.tag="$image_tag" \
-    --set service.type="LoadBalancer" >>"$LOG_FILE" 2>&1; then
+    --set image.tag="$image_tag" >>"$LOG_FILE" 2>&1; then
     fail "Falha ao aplicar o Helm chart no AKS."
   fi
   echo "✔ Helm release '$APP_RELEASE' aplicada."
@@ -319,22 +318,27 @@ cmd_deploy() {
   echo "✔ Pods da aplicacao estao em execucao e saudaveis!"
 
   echo
-  echo "Obtendo IP publico do Azure Load Balancer..."
+  echo "Obtendo IP publico / status de exposicao..."
   local external_ip=""
   local attempt=0
-  local max_attempts=30
+  local max_attempts=15
 
   while [ -z "$external_ip" ] || [ "$external_ip" = "<pending>" ]; do
     attempt=$((attempt + 1))
-    if [ "$attempt" -gt "$max_attempts" ]; then
-      echo "⚠️  O IP publico ainda esta sendo provisionado pelo Azure."
-      echo "Verifique o status executando: kubectl get svc -n $APP_NAMESPACE $APP_RELEASE -w"
+    external_ip=$(kubectl get ingress "$APP_RELEASE" -n "$APP_NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+    if [ -z "$external_ip" ]; then
+      external_ip=$(kubectl get svc -n nginx nginx-ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+    fi
+    if [ -z "$external_ip" ]; then
+      external_ip=$(kubectl get svc "$APP_RELEASE" -n "$APP_NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+    fi
+    if [ -n "$external_ip" ] && [ "$external_ip" != "<pending>" ]; then
       break
     fi
-    external_ip=$(kubectl get svc "$APP_RELEASE" -n "$APP_NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
-    if [ -z "$external_ip" ]; then
-      sleep 5
+    if [ "$attempt" -gt "$max_attempts" ]; then
+      break
     fi
+    sleep 3
   done
 
   echo
@@ -342,16 +346,22 @@ cmd_deploy() {
   echo "  ✅ DEPLOY CONCLUIDO COM SUCESSO NO AZURE AKS!"
   echo "=========================================================="
   local fqdn="mazebank-app.${AZ_LOCATION}.cloudapp.azure.com"
+  local proto="http"
+  if kubectl get ingress "$APP_RELEASE" -n "$APP_NAMESPACE" -o jsonpath='{.spec.tls}' 2>/dev/null | grep -q "secretName"; then
+    proto="https"
+  fi
+
   if [ -n "$external_ip" ]; then
     echo "IP Publico:       $external_ip"
-    echo "Dominio Publico:  http://${fqdn}/mazebank"
-    echo "Healthcheck URL:  http://${fqdn}/mazebank/actuator/health"
+    echo "Dominio Publico:  ${proto}://${fqdn}/mazebank"
+    echo "Healthcheck URL:  ${proto}://${fqdn}/mazebank/actuator/health"
     echo
     echo "Testando endpoint de saude via Dominio Azure:"
-    curl -s --connect-timeout 5 "http://${fqdn}/mazebank/actuator/health" || curl -s --connect-timeout 5 "http://${external_ip}/mazebank/actuator/health" || echo "(Aguarde alguns instantes para propagacao DNS)"
+    curl -s -k --connect-timeout 5 "${proto}://${fqdn}/mazebank/actuator/health" || echo "(Aguarde alguns instantes para propagacao DNS/TLS)"
     echo
   else
-    echo "O IP publico esta em processo de atribuicao pelo Azure Load Balancer."
+    echo "Dominio Publico:  ${proto}://${fqdn}/mazebank"
+    echo "Healthcheck URL:  ${proto}://${fqdn}/mazebank/actuator/health"
   fi
   echo "=========================================================="
   echo "Comandos uteis:"
@@ -370,6 +380,12 @@ cmd_status() {
   echo
   echo "=== Services ==="
   kubectl get svc -n "$APP_NAMESPACE"
+  echo
+  echo "=== Ingress ==="
+  kubectl get ingress -n "$APP_NAMESPACE"
+  echo
+  echo "=== Certificados TLS ==="
+  kubectl get certificate -n "$APP_NAMESPACE" 2>/dev/null || true
   echo
   echo "=== Eventos recentes ==="
   kubectl get events -n "$APP_NAMESPACE" --sort-by='.lastTimestamp' | tail -n 10
