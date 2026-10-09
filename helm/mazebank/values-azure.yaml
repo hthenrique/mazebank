@@ -39,6 +39,9 @@ ingress:
       hosts:
         - mazebank-app.brazilsouth.cloudapp.azure.com
 
+clusterIssuer:
+  enabled: true
+
 resources:
   requests:
     cpu: 250m
