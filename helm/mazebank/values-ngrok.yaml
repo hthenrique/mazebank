@@ -1,0 +1,54 @@
+replicaCount: 1
+
+image:
+  repository: mazebank
+  pullPolicy: IfNotPresent
+  tag: "local"
+
+namespace: mazebank
+
+config:
+  springProfilesActive: local
+  port: "8080"
+  mongoConnectionUrl: mongodb://mazebank-user:mazebank@mazebank-cluster-svc.mongodb.svc.cluster.local:27017/mazebank?authSource=admin
+  ldapUrl: ldap://pingdirectory-pingdirectory.pingidentity.svc.cluster.local:389
+  ldapBase: dc=example,dc=com
+  ldapUserDn: cn=administrator
+  ldapPassword: 2FederateM0re
+
+secret:
+  create: false
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+# Ingress configurado para o Ngrok Kubernetes Ingress Controller instalado no cluster
+ingress:
+  enabled: true
+  className: ngrok
+  annotations:
+    kubernetes.io/ingress.class: null
+    alb.ingress.kubernetes.io/scheme: ""
+    alb.ingress.kubernetes.io/target-type: ""
+    alb.ingress.kubernetes.io/healthcheck-path: ""
+    alb.ingress.kubernetes.io/listen-ports: ""
+  hosts:
+    - unreached-defiant-stimulus.ngrok-free.dev
+  path: /mazebank
+  pathType: Prefix
+
+probes:
+  readiness:
+    initialDelaySeconds: 0
+  liveness:
+    initialDelaySeconds: 0
+  startup:
+    enabled: true
+    path: /mazebank/actuator/health/liveness
+    periodSeconds: 5
+    failureThreshold: 30
+
+mongodb:
+  enabled: false
