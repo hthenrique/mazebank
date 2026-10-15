@@ -27,6 +27,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -51,34 +52,56 @@ public class ManagementServiceImpl implements ManagementService {
 
     @Override
     public BaseResponse createUser(CreateRequest createRequest) throws DatabaseException, ValidationException {
-        User user = findUserInCollection("_userEmail", createRequest.getUseremail().trim().toLowerCase(Locale.ROOT));
-        if (user != null){
-            log.info(String.format("User already exists with uid %s", user.get_id()));
-            throw new DatabaseException(ReturnCode.USER_ALREADY_EXISTS, "User already exists");
-        }
+        String email = createRequest.getUseremail().trim().toLowerCase(Locale.ROOT);
 
-        if (!isValidEmail(createRequest.getUseremail())) {
+        if (!isValidEmail(email)) {
             throw new ValidationException(ReturnCode.INVALID_PARAMETERS, "Invalid email");
         }
 
-        // Gera UUID randômico para o UID do LDAP e identificador do usuário
-        String randomUid = UUID.randomUUID().toString();
+        // 1. Busca nos dois bancos
+        User mongoUser = findUserInCollection("_userEmail", email);
+        Map<String, Object> ldapUser = ldapService.searchLdapUser("mail", email);
 
-        // Criar usuário no LDAP PingDirectory com o UID randômico
-        ldapService.createLdapUser(randomUid, createRequest.getUsername(), createRequest.getUseremail(), createRequest.getUserpass());
+        boolean existsInMongo = (mongoUser != null);
+        boolean existsInLdap = (ldapUser != null && !ldapUser.isEmpty());
 
-        // Salvar usuário no MongoDB (sem armazenar senha)
-        try {
-            Document document = new Document();
-            document.append("_uid", randomUid);
-            document.append("_userName", createRequest.getUsername());
-            document.append("_userEmail", createRequest.getUseremail());
-            document.append("_userCreatedAt", LocalDateTime.now().toString());
-            document.append("_userBalance", BigDecimal.valueOf(100));
-            collection.insertOne(document);
-        } catch (Exception exception){
-            log.error("Erro ao salvar no Mongo: {}", exception.getMessage());
-            throw new DatabaseException(ReturnCode.INTERNAL_SERVER_ERROR, "Database unavailable");
+        // 2. Se já existe em ambos, lança exceção
+        if (existsInMongo && existsInLdap) {
+            log.info("User already exists in both Mongo and LDAP: {}", email);
+            throw new DatabaseException(ReturnCode.USER_ALREADY_EXISTS, "User already exists");
+        }
+
+        // 3. Define qual UID usar (reaproveita se já existir em um deles, senão gera novo)
+        String uid;
+        if (existsInLdap && ldapUser.get("uid") != null) {
+            uid = ldapUser.get("uid").toString();
+        } else if (existsInMongo && mongoUser.get_uid() != null) {
+            uid = mongoUser.get_uid();
+        } else {
+            uid = UUID.randomUUID().toString();
+        }
+
+        // 4. Cria no LDAP se NÃO existir
+        if (!existsInLdap) {
+            log.info("User missing in LDAP. Creating user in LDAP with uid: {}", uid);
+            ldapService.createLdapUser(uid, createRequest.getUsername(), email, createRequest.getUserpass());
+        }
+
+        // 5. Cria no Mongo se NÃO existir
+        if (!existsInMongo) {
+            log.info("User missing in MongoDB. Creating user in Mongo with uid: {}", uid);
+            try {
+                Document document = new Document();
+                document.append("_uid", uid);
+                document.append("_userName", createRequest.getUsername());
+                document.append("_userEmail", email);
+                document.append("_userCreatedAt", LocalDateTime.now().toString());
+                document.append("_userBalance", BigDecimal.valueOf(100));
+                collection.insertOne(document);
+            } catch (Exception exception) {
+                log.error("Erro ao salvar no Mongo: {}", exception.getMessage());
+                throw new DatabaseException(ReturnCode.INTERNAL_SERVER_ERROR, "Database unavailable");
+            }
         }
 
         return new BaseResponse(ReturnCode.CREATE_SUCCESS.getCode(), new CreateResponse("Success"));
